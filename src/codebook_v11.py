@@ -95,9 +95,9 @@ cb = {
    "help": L("No contested claim → N1 (news headline, announcement, ad, greeting, personal update, joke without a political claim).",
              "Nincs vitatott állítás → N1 (hírcím, eseményhír, hirdetés, köszöntés, személyes poszt, politikai állítás nélküli vicc)."),
    "options": [{"value": "yes", "label": YES, "next": "q2"}, {"value": "no", "label": NO, "outcome": "N1"}]},
-  {"id": "q2", "type": "single", "label": L("2. Does the author endorse that claim?", "2. Kiáll-e a szerző az állítás mellett?"),
-   "help": L("Reported, quoted critically, debunked or rebutted → N2. Quoted approvingly or without distance → yes.",
-             "Beszámol róla, kritikusan idézi, cáfolja → N2. Egyetértően vagy távolságtartás nélkül idézi → igen."),
+  {"id": "q2", "type": "single", "label": L("2. Is the claim the author's own position?", "2. A szerző saját álláspontjaként jelenik meg az állítás?"),
+   "help": L("Yes: the author states the claim, or quotes or shares it approvingly or without distance. No → N2: the author only reports, quotes critically, debunks or rebuts it.",
+             "Igen: a szerző maga állítja, vagy egyetértően, távolságtartás nélkül idézi, osztja meg. Nem → N2: csak beszámol róla, kritikusan idézi, cáfolja."),
    "options": [{"value": "yes", "label": YES, "next": "q3"}, {"value": "no", "label": NO, "outcome": "N2"}]},
   {"id": "q3", "type": "single", "label": L("3. Is a P1–P7 mechanism used to close off the reader's judgement?", "3. Használ-e P1–P7 mechanizmust az olvasó ítéletének lezárására?"),
    "help": L("A sharp, one-sided or offensive post can still be N3. When unsure, choose N3 with low confidence and explain in the comment.",
@@ -151,8 +151,5 @@ cb = {
 
 if __name__ == "__main__":
     s = json.dumps(cb, ensure_ascii=False)
-    open("/home/claude/coding_app/codebook_v11.json", "w").write(s)
-    sql = ("insert into public.codebook_versions (version, definition, notes, is_current) values ('v1.1', $cb$"
-           + s + "$cb$::jsonb, 'Initial version from the codebook doc (2026-11-16)', true);")
-    open("/home/claude/coding_app/codebook_insert.sql", "w").write(sql)
+    open(__import__("os").path.join(__import__("os").path.dirname(__file__), "codebook_v11.json"), "w").write(s)
     print(len(s))
