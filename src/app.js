@@ -28,7 +28,7 @@ const T = {
     primary_needed: 'Choose the dominant code', comment_needed: 'A comment is required here',
     complete_flow: 'Answer the questions above', confidence_needed: 'Set the confidence',
     recode_banner: 'Please recode this post', old_version: 'Coded with codebook {v}; current version is {c}.',
-    lowconf_hint: 'Doubt at question 3 goes to N3 with low confidence — explain the doubt in the comment.',
+    lowconf_hint: 'When unsure, the post is not coded as proselytising and gets low confidence — explain the doubt in the comment.',
     definition: 'Definition', include: 'Include', exclude: 'Exclude', cues: 'Cues', example: 'Example',
     boundary: 'Boundary rules', special: 'Special cases', rules: 'Unit of analysis',
     full_doc: 'Full codebook document',
@@ -73,7 +73,7 @@ const T = {
     primary_needed: 'Válaszd ki a domináló kódot', comment_needed: 'Itt kötelező a megjegyzés',
     complete_flow: 'Válaszolj a fenti kérdésekre', confidence_needed: 'Állítsd be a biztonságot',
     recode_banner: 'Kérjük, kódold újra ezt a posztot', old_version: 'A(z) {v} kódkönyvvel kódolva; a jelenlegi a(z) {c}.',
-    lowconf_hint: 'Ha a 3. kérdésnél kétség van: N3 alacsony biztonsággal, a kétséget a megjegyzésben írd le.',
+    lowconf_hint: 'Kétség esetén a poszt nem proszelita, alacsony biztonsággal — a kétséget a megjegyzésben írd le.',
     definition: 'Definíció', include: 'Ide tartozik', exclude: 'Nem tartozik ide', cues: 'Jelölők', example: 'Példa',
     boundary: 'Határeset-szabályok', special: 'Különleges esetek', rules: 'Elemzési egység',
     full_doc: 'A teljes kódkönyv',
@@ -349,7 +349,7 @@ function codingForm(container, state, onChange) {
     });
     if (w.outcome) {
       html += `<div class="outcome">${t('outcome')}: <span class="pill ${esc(w.outcome)}">${esc(CB.outcomeLabel(w.outcome))}</span></div>`;
-      if (ans.q3 === 'unsure') html += `<div class="banner info">${esc(t('lowconf_hint'))}</div>`;
+      if (w.path.some(id => { const n = CB.node(id); return n.type === 'single' && (n.options || []).some(o => o.suggest_confidence && String(o.value) === String(ans[id])); })) html += `<div class="banner info">${esc(t('lowconf_hint'))}</div>`;
     }
     html += '<div class="fields">';
     (def.fields || []).forEach(f => {
@@ -490,7 +490,7 @@ function batchSelect(id, val) {
 function agreementVars(def) {
   const vars = [];
   vars.push({ id: 'proselytising', label: L({ en: 'Proselytising (binary)', hu: 'Proszelita (bináris)' }), dist: AGR.nominal, get: a => (a.outcome ? (def.outcomes[a.outcome] ? def.outcomes[a.outcome].proselytising : null) : null), heat: true });
-  vars.push({ id: 'outcome', label: L({ en: 'Outcome (N1/N2/N3/P)', hu: 'Eredmény (N1/N2/N3/P)' }), dist: AGR.nominal, get: a => a.outcome || null, heat: true });
+  vars.push({ id: 'outcome', label: L({ en: 'Outcome', hu: 'Eredmény' }) + ' (' + Object.keys(def.outcomes).join('/') + ')', dist: AGR.nominal, get: a => a.outcome || null, heat: true });
   def.flow.forEach(n => {
     if (n.type === 'single') vars.push({ id: n.id, label: L(n.label), dist: AGR.nominal, get: a => (a[n.id] == null ? null : a[n.id]), node: n.id, heat: true });
     if (n.type === 'multi') {
@@ -655,7 +655,7 @@ async function viewAnalysis() {
   const src = store.get('an_src', 'codings');
   const labels = src === 'gold' ? [...R.adj.values()].map(a => ({ post_id: a.post_id, answers: a.answers })) : R.codings;
   const outs = Object.keys(def.outcomes);
-  const colors = { N1: '#b9cbe8', N2: '#7fa0d6', N3: '#3f6fb8', P: '#c00000' };
+  const colors = { N1: '#b9cbe8', N2: '#7fa0d6', N3: '#3f6fb8', P99: '#7fa0d6', P: '#c00000' };
   const groups = new Map();
   labels.forEach(l => { const m = R.meta.get(l.post_id) || {}; const g = gk ? String(m[gk] == null ? '–' : m[gk]) : t('all'); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(l); });
   const codes = CB.allCodes();
@@ -675,7 +675,7 @@ async function viewAnalysis() {
     <div class="card"><h2>${t('freq')}</h2><div class="bars">${cf.map(x => `<div class="b"><div class="l">${esc(x.c)}</div><div class="track"><div style="width:${(100 * x.n) / maxc}%;background:#e08a8a"></div></div><div class="v">${x.n} <span class="muted">(${x.prim})</span></div></div>`).join('')}</div>
       <p class="small muted">n (primary)</p></div></div>
     <div class="card" style="margin-top:16px"><h2>${t('issues')} (${issues.length})</h2><div style="max-height:480px;overflow:auto"><table class="data"><tr><th>post</th><th>${t('coders_n')}</th><th>${t('outcome')}</th><th>conf.</th><th>flags</th><th>comment</th></tr>
-      ${issues.map(c => `<tr><td>${esc((pmap.get(c.post_id) || {}).external_id)}</td><td>${esc(name(c.coder_id))}</td><td>${summary(c.answers)}</td><td>${esc(c.answers.confidence)}</td><td>${[c.answers.flag_codebook ? 'codebook' : '', c.answers.flag_translation ? 'transl.' : '', c.answers.flag_irony ? 'irony' : ''].filter(Boolean).join(', ')}</td><td>${esc(c.answers.comment || '')}</td></tr>`).join('')}</table></div></div>`;
+      ${issues.map(c => `<tr><td>${esc((pmap.get(c.post_id) || {}).external_id)}</td><td>${esc(name(c.coder_id))}</td><td>${summary(c.answers)}</td><td>${esc(c.answers.confidence)}</td><td>${[c.answers.flag_codebook ? 'codebook' : '', c.answers.flag_translation ? 'transl.' : '', c.answers.flag_irony ? 'irony' : '', c.answers.flag_quote ? 'quote' : ''].filter(Boolean).join(', ')}</td><td>${esc(c.answers.comment || '')}</td></tr>`).join('')}</table></div></div>`;
   $('#nb').onchange = e => { store.set('an_batch', e.target.value); render(); };
   $('#ng').onchange = e => { store.set('an_group', e.target.value); render(); };
   $('#ns').onchange = e => { store.set('an_src', e.target.value); render(); };
