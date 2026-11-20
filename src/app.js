@@ -323,6 +323,10 @@ function codingForm(container, state, onChange) {
       const n = CB.node(id); const active = id === w.next;
       html += `<div class="step ${active ? 'active' : 'done'}" data-node="${esc(id)}"><div class="q">${esc(L(n.label))}</div>`;
       if (n.help) html += `<div class="help">${esc(L(n.help))}</div>`;
+      if (n.show_options_of && active) {
+        const src = CB.node(n.show_options_of);
+        if (src) html += `<div class="mech">${src.options.map(o => `<details><summary><b>${esc(L(o.label))}</b></summary><div class="small">${o.definition ? esc(L(o.definition)) : ''}${o.example ? `<br><i>${esc(L(o.example))}</i>` : ''}</div></details>`).join('')}</div>`;
+      }
       if (n.type === 'single') {
         html += `<div class="choice">${n.options.map(o => `<button data-v="${esc(o.value)}" class="${String(ans[id]) === String(o.value) ? 'on' : ''}">${esc(L(o.label))}</button>`).join('')}</div>`;
       } else if (n.type === 'multi') {

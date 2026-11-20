@@ -104,7 +104,7 @@ cb = {
              "Egy éles, egyoldalú vagy sértő poszt is lehet N3. Kétség esetén N3 alacsony biztonsággal, a kétséget a megjegyzésben írjuk le."),
    "options": [{"value": "yes", "label": YES, "next": "codes"},
                {"value": "no", "label": NO, "outcome": "N3"},
-               {"value": "unsure", "label": L("Unsure", "Bizonytalan"), "outcome": "N3", "suggest_confidence": 1}]},
+               {"value": "unsure", "label": L("Unsure", "Bizonytalan"), "outcome": "N3", "suggest_confidence": 1}], "show_options_of": "codes"},
   {"id": "codes", "type": "multi", "label": L("Mark every code present", "Jelölj minden jelen lévő kódot"),
    "help": L("Cue phrases are hints, not criteria.", "A jelölő kifejezések csak segítségek, nem kritériumok."),
    "min": 1, "next": "primary", "options": codes},
