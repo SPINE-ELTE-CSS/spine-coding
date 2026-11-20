@@ -1,0 +1,934 @@
+// ===== SPINE coding app =====
+const sb = supabase.createClient(CONFIG.url, CONFIG.key, { auth: { persistSession: true } });
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('spine_' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('spine_' + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+const S = {
+  lang: store.get('lang', 'en'),
+  me: null, codebook: null, codebooks: [], tab: null,
+  batches: [], coders: [],
+};
+
+// ---------- i18n ----------
+const T = {
+  en: {
+    code: 'Coding', agreement: 'Agreement', adjudicate: 'Adjudication', analysis: 'Analysis', admin: 'Admin', downloads: 'Downloads',
+    login: 'Log in', signup: 'Create account', email: 'E-mail', password: 'Password', name: 'Name', logout: 'Log out',
+    have_account: 'Already have an account?', no_account: 'No account yet?',
+    pending: 'Your account is waiting for activation by the project admin. Reload this page once you have been activated.',
+    signup_done: 'Account created. If e-mail confirmation is on, confirm your address first; then ask the admin to activate you.',
+    queue: 'My posts', batch: 'Batch', all: 'All', done: 'done', todo: 'to do', recode: 'recode',
+    no_posts: 'No posts assigned to you yet.', select_post: 'Select a post from the list.',
+    show_orig: 'Show original', hide_orig: 'Hide original', codebook: 'Codebook',
+    save_next: 'Save and next', save: 'Save', saved: 'Saved', outcome: 'Outcome',
+    primary_needed: 'Choose the dominant code', comment_needed: 'A comment is required here',
+    complete_flow: 'Answer the questions above', confidence_needed: 'Set the confidence',
+    recode_banner: 'Please recode this post', old_version: 'Coded with codebook {v}; current version is {c}.',
+    lowconf_hint: 'Doubt at question 3 goes to N3 with low confidence — explain the doubt in the comment.',
+    definition: 'Definition', include: 'Include', exclude: 'Exclude', cues: 'Cues', example: 'Example',
+    boundary: 'Boundary rules', special: 'Special cases', rules: 'Unit of analysis',
+    full_doc: 'Full codebook document',
+    variable: 'Variable', units: 'Units', alpha: 'α', pct: '% agree', coders_n: 'Coders',
+    agr_intro: 'Krippendorff\'s α per decision node. Targets: ≥ 0.80 for the binary decision, ≥ 0.667 per code.',
+    heat_title: 'Agreement by post and node', heat_help: 'Cell = share of agreeing coder pairs (green 1, red 0, grey not applicable). Click a post for details.',
+    diverge_title: 'Where coders first diverge in the decision tree', diverge_none: 'full agreement',
+    pair_title: 'Coder pair confusion matrix (outcome)', coder_title: 'Coder profiles',
+    only_disagree: 'Only disagreements', sort_dis: 'Sort by disagreement',
+    no_overlap: 'No post has been coded by at least two coders yet.',
+    adj_intro: 'Posts coded by at least two coders. Your decision becomes the gold-standard label.',
+    rationale: 'Rationale', adjudicated: 'adjudicated', save_gold: 'Save gold label', send_back: 'Send back for recoding',
+    group_by: 'Group by', label_source: 'Labels', gold: 'Gold (adjudicated)', all_codings: 'All codings',
+    issues: 'Codebook issues and low-confidence comments', freq: 'Code frequencies', outcome_by: 'Outcome by group',
+    import: 'Import data', batches: 'Batches', assign: 'Assignments', coders: 'Coders', cb_edit: 'Codebook',
+    file: 'File', sheet_text: 'Sheet with texts', col_id: 'ID column', col_en: 'English text column', col_orig: 'Original text column', col_lang: 'Language column',
+    sheet_meta: 'Metadata sheet (optional)', col_join: 'Join column', batch_name: 'Batch name (new or existing)', do_import: 'Import',
+    none: '— none —', imported: 'Imported {n} posts.',
+    assign_mode: 'Mode', mode_all: 'Every selected coder codes every post', mode_split: 'Split posts among coders with overlap',
+    overlap: 'Overlap (% of posts coded by all selected)', do_assign: 'Create assignments', assigned: 'Created {n} assignments.',
+    role: 'Role', progress: 'Progress',
+    cb_current: 'Current version', cb_new_version: 'New version name', cb_notes: 'What changed', cb_save: 'Save as new version and make current',
+    cb_raw: 'Advanced: edit raw JSON', cb_history: 'Version history', add_code: 'Add code',
+    recode_old: 'Send codings made with an older codebook version back for recoding',
+    dl_mine: 'My codings', dl_long: 'All codings (long: one row per coding)', dl_wide: 'All codings (wide: one row per post)',
+    dl_gold: 'Gold standard', dl_agree: 'Agreement report', dl_log: 'Coding log (audit trail)', dl_cb: 'Codebook (JSON)', dl_coder: 'One coder\'s work',
+    loading: 'Loading…', confirm_send_back: 'Send this post back to all its coders for recoding?',
+    cb_bootstrap: 'Codebook v1.1 was loaded into the database.',
+    novar: 'no variation', time: 'Time', posts: 'posts', mean_conf: 'Mean confidence', mean_time: 'Median time (s)',
+  },
+  hu: {
+    code: 'Kódolás', agreement: 'Egyetértés', adjudicate: 'Döntés', analysis: 'Elemzés', admin: 'Admin', downloads: 'Letöltések',
+    login: 'Belépés', signup: 'Regisztráció', email: 'E-mail', password: 'Jelszó', name: 'Név', logout: 'Kilépés',
+    have_account: 'Van már fiókod?', no_account: 'Még nincs fiókod?',
+    pending: 'A fiókodat a projekt adminisztrátorának még aktiválnia kell. Aktiválás után töltsd újra az oldalt.',
+    signup_done: 'A fiók elkészült. Ha be van kapcsolva az e-mail-megerősítés, előbb erősítsd meg a címet, utána kérd az aktiválást.',
+    queue: 'Posztjaim', batch: 'Köteg', all: 'Mind', done: 'kész', todo: 'hátra', recode: 'újrakódolás',
+    no_posts: 'Még nincs hozzád rendelt poszt.', select_post: 'Válassz egy posztot a listából.',
+    show_orig: 'Eredeti mutatása', hide_orig: 'Eredeti elrejtése', codebook: 'Kódkönyv',
+    save_next: 'Mentés és következő', save: 'Mentés', saved: 'Mentve', outcome: 'Eredmény',
+    primary_needed: 'Válaszd ki a domináló kódot', comment_needed: 'Itt kötelező a megjegyzés',
+    complete_flow: 'Válaszolj a fenti kérdésekre', confidence_needed: 'Állítsd be a biztonságot',
+    recode_banner: 'Kérjük, kódold újra ezt a posztot', old_version: 'A(z) {v} kódkönyvvel kódolva; a jelenlegi a(z) {c}.',
+    lowconf_hint: 'Ha a 3. kérdésnél kétség van: N3 alacsony biztonsággal, a kétséget a megjegyzésben írd le.',
+    definition: 'Definíció', include: 'Ide tartozik', exclude: 'Nem tartozik ide', cues: 'Jelölők', example: 'Példa',
+    boundary: 'Határeset-szabályok', special: 'Különleges esetek', rules: 'Elemzési egység',
+    full_doc: 'A teljes kódkönyv',
+    variable: 'Változó', units: 'Egységek', alpha: 'α', pct: '% egyezés', coders_n: 'Kódolók',
+    agr_intro: 'Krippendorff-féle α a döntési fa minden csomópontján. Cél: ≥ 0,80 a bináris döntésnél, ≥ 0,667 kódonként.',
+    heat_title: 'Egyetértés posztonként és csomópontonként', heat_help: 'Cella = az egyező kódolópárok aránya (zöld 1, piros 0, szürke nem értelmezhető). Kattints egy posztra a részletekért.',
+    diverge_title: 'Hol válnak el először a kódolók a döntési fában', diverge_none: 'teljes egyezés',
+    pair_title: 'Kódolópár tévesztési mátrixa (eredmény)', coder_title: 'Kódolói profilok',
+    only_disagree: 'Csak az eltérések', sort_dis: 'Rendezés eltérés szerint',
+    no_overlap: 'Még nincs olyan poszt, amelyet legalább két kódoló kódolt.',
+    adj_intro: 'Legalább két kódoló által kódolt posztok. A döntésed lesz a gold standard címke.',
+    rationale: 'Indoklás', adjudicated: 'eldöntve', save_gold: 'Gold címke mentése', send_back: 'Visszaküldés újrakódolásra',
+    group_by: 'Csoportosítás', label_source: 'Címkék', gold: 'Gold (eldöntött)', all_codings: 'Minden kódolás',
+    issues: 'Kódkönyv-problémák és alacsony biztonságú megjegyzések', freq: 'Kódgyakoriságok', outcome_by: 'Eredmény csoportonként',
+    import: 'Adatfeltöltés', batches: 'Kötegek', assign: 'Kiosztás', coders: 'Kódolók', cb_edit: 'Kódkönyv',
+    file: 'Fájl', sheet_text: 'Szövegeket tartalmazó munkalap', col_id: 'Azonosító oszlop', col_en: 'Angol szöveg oszlop', col_orig: 'Eredeti szöveg oszlop', col_lang: 'Nyelv oszlop',
+    sheet_meta: 'Metaadat-munkalap (opcionális)', col_join: 'Kapcsoló oszlop', batch_name: 'Köteg neve (új vagy meglévő)', do_import: 'Feltöltés',
+    none: '— nincs —', imported: '{n} poszt feltöltve.',
+    assign_mode: 'Mód', mode_all: 'Minden kijelölt kódoló minden posztot kódol', mode_split: 'A posztok szétosztása átfedéssel',
+    overlap: 'Átfedés (a posztok hány %-át kódolja minden kijelölt)', do_assign: 'Kiosztás', assigned: '{n} kiosztás létrehozva.',
+    role: 'Szerep', progress: 'Haladás',
+    cb_current: 'Jelenlegi verzió', cb_new_version: 'Új verzió neve', cb_notes: 'Mi változott', cb_save: 'Mentés új verzióként és aktiválás',
+    cb_raw: 'Haladó: nyers JSON szerkesztése', cb_history: 'Verziótörténet', add_code: 'Új kód',
+    recode_old: 'Régebbi kódkönyv-verzióval készült kódolások visszaküldése újrakódolásra',
+    dl_mine: 'Saját kódolásaim', dl_long: 'Minden kódolás (hosszú: kódolásonként egy sor)', dl_wide: 'Minden kódolás (széles: posztonként egy sor)',
+    dl_gold: 'Gold standard', dl_agree: 'Egyetértési jelentés', dl_log: 'Kódolási napló', dl_cb: 'Kódkönyv (JSON)', dl_coder: 'Egy kódoló munkája',
+    loading: 'Betöltés…', confirm_send_back: 'Visszaküldöd ezt a posztot minden kódolójának újrakódolásra?',
+    cb_bootstrap: 'A v1.1 kódkönyv bekerült az adatbázisba.',
+    novar: 'nincs variancia', time: 'Idő', posts: 'poszt', mean_conf: 'Átlagos biztonság', mean_time: 'Medián idő (mp)',
+  }
+};
+const t = (k, vars) => { let s = (T[S.lang] && T[S.lang][k]) || T.en[k] || k; if (vars) Object.keys(vars).forEach(v => (s = s.replace('{' + v + '}', vars[v]))); return s; };
+const L = o => (o == null ? '' : typeof o === 'string' ? o : (o[S.lang] || o.en || ''));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+const h = html => { const d = document.createElement('div'); d.innerHTML = html; return d; };
+
+function toast(msg, err) {
+  const d = document.createElement('div'); d.className = 'toast' + (err ? ' err' : ''); d.textContent = msg;
+  document.body.appendChild(d); setTimeout(() => d.remove(), err ? 6000 : 2500);
+}
+function fail(e) { console.error(e); toast((e && (e.message || e.error_description)) || String(e), true); }
+
+async function fetchAll(build) {
+  const size = 1000; let from = 0; const out = [];
+  for (;;) {
+    const { data, error } = await build().range(from, from + size - 1);
+    if (error) throw error;
+    out.push(...data);
+    if (data.length < size) break;
+    from += size;
+  }
+  return out;
+}
+const chunk = (arr, n) => { const r = []; for (let i = 0; i < arr.length; i += n) r.push(arr.slice(i, i + n)); return r; };
+const median = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const fmt = (x, d = 2) => (x == null || isNaN(x) ? '–' : Number(x).toFixed(d));
+const isReviewer = () => S.me && ['admin', 'adjudicator'].includes(S.me.role);
+const isAdmin = () => S.me && S.me.role === 'admin';
+
+// ---------- codebook engine ----------
+const CB = {
+  def: () => S.codebook && S.codebook.definition,
+  node: id => CB.def().flow.find(n => n.id === id),
+  multiNodes: () => CB.def().flow.filter(n => n.type === 'multi'),
+  // walk the decision flow; returns {path:[ids], outcome, next (first unanswered id or null)}
+  walk(ans, def) {
+    def = def || CB.def();
+    const path = []; let id = def.flow[0].id; let outcome = null; let guard = 0;
+    while (id && guard++ < 50) {
+      const n = def.flow.find(x => x.id === id); if (!n) break;
+      path.push(id);
+      const a = ans[id];
+      if (n.type === 'single') {
+        const opt = (n.options || []).find(o => String(o.value) === String(a));
+        if (!opt) return { path, outcome: null, next: id };
+        if (opt.outcome) { outcome = opt.outcome; id = null; } else id = opt.next;
+      } else if (n.type === 'multi') {
+        const sel = Array.isArray(a) ? a : [];
+        if (sel.length < (n.min || 1)) return { path, outcome: null, next: id };
+        if (n.outcome) { outcome = n.outcome; id = null; } else id = n.next;
+      } else if (n.type === 'primary') {
+        const src = ans[n.source] || [];
+        if (src.length === 1 && !a) ans[id] = src[0];
+        if (!ans[id] || !src.includes(ans[id])) return { path, outcome: null, next: id };
+        outcome = n.outcome; id = n.next || null;
+      } else break;
+    }
+    return { path, outcome, next: null };
+  },
+  // validation of the whole answer set; returns list of problems
+  problems(ans) {
+    const def = CB.def(); const w = CB.walk(ans); const p = [];
+    if (!w.outcome) p.push(t('complete_flow'));
+    (def.fields || []).forEach(f => {
+      if (f.required && (ans[f.id] == null || ans[f.id] === '')) p.push(t('confidence_needed'));
+      if (f.type === 'text') {
+        let need = false;
+        if (f.required_if) Object.keys(f.required_if).forEach(k => { if (String(ans[k]) === String(f.required_if[k])) need = true; });
+        if (f.required_if_flag && ans[f.required_if_flag]) need = true;
+        if (need && !(ans[f.id] || '').trim()) p.push(t('comment_needed'));
+      }
+    });
+    return p;
+  },
+  // clean answers: keep only path nodes + fields, add outcome
+  finalize(ans) {
+    const def = CB.def(); const w = CB.walk(ans); const out = {};
+    w.path.forEach(id => { if (ans[id] !== undefined) out[id] = ans[id]; });
+    (def.fields || []).forEach(f => { if (ans[f.id] !== undefined) out[f.id] = ans[f.id]; });
+    out.outcome = w.outcome;
+    out.path = w.path;
+    return out;
+  },
+  outcomeLabel: o => { const d = CB.def(); return o && d.outcomes[o] ? L(d.outcomes[o].label) : (o || '–'); },
+  optLabel(nodeId, v) {
+    const n = CB.node(nodeId); if (!n) return v;
+    const o = (n.options || []).find(x => String(x.value) === String(v)); return o ? L(o.label) : v;
+  },
+  allCodes() { return CB.multiNodes().flatMap(n => n.options.map(o => o.value)); },
+};
+function summary(ans) {
+  if (!ans) return '–';
+  const o = ans.outcome; let s = `<span class="pill ${esc(o)}">${esc(o || '?')}</span>`;
+  CB.multiNodes().forEach(n => { const v = ans[n.id]; if (Array.isArray(v) && v.length) s += ' ' + v.map(x => (x === ans.primary ? `<b>${esc(x)}</b>` : esc(x))).join('+'); });
+  return s;
+}
+
+// ---------- boot ----------
+async function boot() {
+  $$('.lang button').forEach(b => {
+    b.classList.toggle('on', b.dataset.l === S.lang);
+    b.onclick = () => { S.lang = b.dataset.l; store.set('lang', S.lang); $$('.lang button').forEach(x => x.classList.toggle('on', x.dataset.l === S.lang)); render(); };
+  });
+  const { data: { session } } = await sb.auth.getSession();
+  sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') location.reload(); });
+  if (!session) return renderAuth();
+  await loadMe();
+}
+
+async function loadMe() {
+  const { data: { user } } = await sb.auth.getUser();
+  const { data, error } = await sb.from('coders').select('*').eq('id', user.id).maybeSingle();
+  if (error) return fail(error);
+  S.me = data || { id: user.id, email: user.email, role: 'pending' };
+  $('#who').innerHTML = `${esc(S.me.display_name || S.me.email)} · ${esc(S.me.role)} · <a href="#" id="lo" style="color:#fff">${t('logout')}</a>`;
+  $('#lo').onclick = async e => { e.preventDefault(); await sb.auth.signOut(); location.reload(); };
+  if (S.me.role === 'pending') { $('#app').innerHTML = `<div class="auth"><div class="card">${esc(t('pending'))}</div></div>`; return; }
+  await loadCodebooks();
+  S.batches = (await sb.from('batches').select('*').order('id')).data || [];
+  S.tab = S.tab || 'code';
+  render();
+}
+
+async function loadCodebooks() {
+  const { data, error } = await sb.from('codebook_versions').select('*').order('id');
+  if (error) return fail(error);
+  S.codebooks = data || [];
+  if (!S.codebooks.length && isAdmin()) {
+    const { error: e2 } = await sb.from('codebook_versions').insert({ version: BUNDLED_CODEBOOK.version, definition: BUNDLED_CODEBOOK, notes: 'Initial version from the codebook document (2026-11-16)', is_current: true, created_by: S.me.id });
+    if (e2) fail(e2); else toast(t('cb_bootstrap'));
+    return loadCodebooks();
+  }
+  S.codebook = S.codebooks.find(c => c.is_current) || S.codebooks[S.codebooks.length - 1] || null;
+  $('#cbver').textContent = S.codebook ? 'codebook ' + S.codebook.version : '';
+}
+
+function renderAuth(mode = 'login') {
+  const signup = mode === 'signup';
+  $('#app').innerHTML = `<div class="auth"><div class="card">
+    <h2>${t(signup ? 'signup' : 'login')}</h2>
+    ${signup ? `<label>${t('name')}</label><input id="a_name" type="text">` : ''}
+    <label>${t('email')}</label><input id="a_email" type="email" autocomplete="username">
+    <label>${t('password')}</label><input id="a_pw" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}">
+    <div class="row" style="margin-top:16px"><button class="btn primary" id="a_go">${t(signup ? 'signup' : 'login')}</button></div>
+    <p class="small muted">${t(signup ? 'have_account' : 'no_account')} <a href="#" id="a_sw">${t(signup ? 'login' : 'signup')}</a></p>
+  </div></div>`;
+  $('#a_sw').onclick = e => { e.preventDefault(); renderAuth(signup ? 'login' : 'signup'); };
+  const go = async () => {
+    const email = $('#a_email').value.trim(), password = $('#a_pw').value;
+    if (signup) {
+      const { error } = await sb.auth.signUp({ email, password, options: { data: { display_name: $('#a_name').value.trim() } } });
+      if (error) return fail(error);
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) return loadMe();
+      toast(t('signup_done')); renderAuth('login');
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) return fail(error);
+      loadMe();
+    }
+  };
+  $('#a_go').onclick = go;
+  $('#a_pw').onkeydown = e => { if (e.key === 'Enter') go(); };
+}
+
+function render() {
+  if (!S.me) return renderAuth();
+  if (S.me.role === 'pending') return;
+  const tabs = [['code', true], ['agreement', isReviewer()], ['adjudicate', isReviewer()], ['analysis', isReviewer()], ['downloads', true], ['admin', isAdmin()]].filter(x => x[1]).map(x => x[0]);
+  if (!tabs.includes(S.tab)) S.tab = 'code';
+  $('#tabs').innerHTML = tabs.map(k => `<button data-t="${k}" class="${k === S.tab ? 'active' : ''}">${t(k)}</button>`).join('');
+  $$('#tabs button').forEach(b => (b.onclick = () => { S.tab = b.dataset.t; render(); }));
+  const views = { code: viewCode, agreement: viewAgreement, adjudicate: viewAdjudicate, analysis: viewAnalysis, downloads: viewDownloads, admin: viewAdmin };
+  if (!S.codebook) { $('#app').innerHTML = '<div class="card">No codebook in the database yet. An admin needs to log in once.</div>'; return; }
+  $('#app').innerHTML = `<div class="muted">${t('loading')}</div>`;
+  views[S.tab]().catch(fail);
+}
+
+// ---------- codebook modal ----------
+function codebookHtml(def) {
+  const opt = o => `<div style="margin:10px 0"><b>${esc(L(o.label))}</b>
+    <div class="kv" style="margin-top:4px">
+      ${o.definition ? `<div>${t('definition')}</div><div>${esc(L(o.definition))}</div>` : ''}
+      ${o.include ? `<div>${t('include')}</div><div>${esc(L(o.include))}</div>` : ''}
+      ${o.exclude ? `<div>${t('exclude')}</div><div>${esc(L(o.exclude))}</div>` : ''}
+      ${o.cues ? `<div>${t('cues')}</div><div><i>${esc(L(o.cues))}</i></div>` : ''}
+      ${o.example ? `<div>${t('example')}</div><div>${esc(L(o.example))}</div>` : ''}
+    </div></div>`;
+  return `<h2>${esc(L(def.title))}</h2><p>${esc(L(def.definition))}</p>
+    <h3>${t('rules')}</h3><ul>${(def.rules || []).map(r => `<li>${esc(L(r))}</li>`).join('')}</ul>
+    ${def.flow.map(n => `<h3>${esc(L(n.label))}</h3>${n.help ? `<p class="muted">${esc(L(n.help))}</p>` : ''}
+      ${n.type === 'multi' ? n.options.map(opt).join('') : ''}`).join('')}
+    <h3>${t('outcome')}</h3><ul>${Object.keys(def.outcomes).map(k => `<li><b>${esc(k)}</b> — ${esc(L(def.outcomes[k].label))}</li>`).join('')}</ul>
+    <h3>${t('boundary')}</h3><table class="data">${(def.boundary_rules || []).map(r => `<tr><td style="white-space:nowrap"><b>${esc(r.pair)}</b></td><td>${esc(L(r.rule))}</td></tr>`).join('')}</table>
+    <h3>${t('special')}</h3><ul>${(def.special_cases || []).map(r => `<li>${esc(L(r))}</li>`).join('')}</ul>
+    ${def.docs_url ? `<p><a href="${esc(def.docs_url)}" target="_blank" rel="noopener">${t('full_doc')} ↗</a></p>` : ''}`;
+}
+function modal(html) {
+  const bg = h(`<div class="modal-bg"><div class="modal"><button class="x">×</button>${html}</div></div>`).firstElementChild;
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.onclick = e => { if (e.target === bg) close(); };
+  $('.x', bg).onclick = close;
+  return { el: bg, close };
+}
+
+// ---------- coding form (shared by coders and adjudicators) ----------
+// renders into container; state.ans is mutated; onChange called after each change
+function codingForm(container, state, onChange) {
+  const def = CB.def();
+  const draw = () => {
+    const ans = state.ans; const w = CB.walk(ans);
+    let html = '';
+    w.path.forEach(id => {
+      const n = CB.node(id); const active = id === w.next;
+      html += `<div class="step ${active ? 'active' : 'done'}" data-node="${esc(id)}"><div class="q">${esc(L(n.label))}</div>`;
+      if (n.help) html += `<div class="help">${esc(L(n.help))}</div>`;
+      if (n.type === 'single') {
+        html += `<div class="choice">${n.options.map(o => `<button data-v="${esc(o.value)}" class="${String(ans[id]) === String(o.value) ? 'on' : ''}">${esc(L(o.label))}</button>`).join('')}</div>`;
+      } else if (n.type === 'multi') {
+        const sel = ans[id] || [];
+        html += n.options.map(o => `<div class="codeopt ${sel.includes(o.value) ? 'on' : ''}">
+          <div class="head"><input type="checkbox" id="c_${esc(o.value)}" data-v="${esc(o.value)}" ${sel.includes(o.value) ? 'checked' : ''}>
+          <label for="c_${esc(o.value)}">${esc(L(o.label))}</label><button class="btn sm" data-info="${esc(o.value)}">i</button></div>
+          <div class="info hidden" data-infobox="${esc(o.value)}">
+            ${o.definition ? `<div><b>${t('definition')}:</b> ${esc(L(o.definition))}</div>` : ''}
+            ${o.include ? `<div><b>${t('include')}:</b> ${esc(L(o.include))}</div>` : ''}
+            ${o.exclude ? `<div><b>${t('exclude')}:</b> ${esc(L(o.exclude))}</div>` : ''}
+            ${o.cues ? `<div><b>${t('cues')}:</b> <i>${esc(L(o.cues))}</i></div>` : ''}
+            ${o.example ? `<div><b>${t('example')}:</b> ${esc(L(o.example))}</div>` : ''}
+          </div></div>`).join('');
+      } else if (n.type === 'primary') {
+        const src = ans[n.source] || [];
+        html += `<div class="choice">${src.map(v => `<button data-v="${esc(v)}" class="${ans[id] === v ? 'on' : ''}">${esc(v)}</button>`).join('')}</div>`;
+      }
+      html += '</div>';
+    });
+    if (w.outcome) {
+      html += `<div class="outcome">${t('outcome')}: <span class="pill ${esc(w.outcome)}">${esc(CB.outcomeLabel(w.outcome))}</span></div>`;
+      if (ans.q3 === 'unsure') html += `<div class="banner info">${esc(t('lowconf_hint'))}</div>`;
+    }
+    html += '<div class="fields">';
+    (def.fields || []).forEach(f => {
+      if (f.type === 'scale') {
+        html += `<div class="f"><label class="t">${esc(L(f.label))}${f.required ? ' <span class="req">*</span>' : ''}</label><div class="choice" data-field="${esc(f.id)}">${f.options.map(o => `<button data-v="${esc(o.value)}" class="${String(ans[f.id]) === String(o.value) ? 'on' : ''}">${esc(L(o.label))}</button>`).join('')}</div></div>`;
+      } else if (f.type === 'flag') {
+        html += `<div class="flag"><input type="checkbox" id="f_${esc(f.id)}" data-flag="${esc(f.id)}" ${ans[f.id] ? 'checked' : ''}><label for="f_${esc(f.id)}">${esc(L(f.label))}</label></div>`;
+      } else if (f.type === 'text') {
+        let need = false;
+        if (f.required_if) Object.keys(f.required_if).forEach(k => { if (String(ans[k]) === String(f.required_if[k])) need = true; });
+        if (f.required_if_flag && ans[f.required_if_flag]) need = true;
+        html += `<div class="f"><label class="t">${esc(L(f.label))}${need ? ' <span class="req">*</span>' : ''}</label><textarea data-text="${esc(f.id)}">${esc(ans[f.id] || '')}</textarea></div>`;
+      }
+    });
+    html += '</div>';
+    container.innerHTML = html;
+    // wire
+    $$('.step', container).forEach(st => {
+      const id = st.dataset.node; const n = CB.node(id);
+      if (n.type === 'single' || n.type === 'primary') $$('.choice button', st).forEach(b => (b.onclick = () => {
+        ans[id] = b.dataset.v;
+        if (n.type === 'single') {
+          const o = n.options.find(x => String(x.value) === b.dataset.v);
+          if (o && o.suggest_confidence && ans.confidence == null) ans.confidence = o.suggest_confidence;
+        }
+        draw(); onChange && onChange();
+      }));
+      if (n.type === 'multi') {
+        $$('input[type=checkbox]', st).forEach(cb => (cb.onchange = () => {
+          const sel = new Set(ans[id] || []); cb.checked ? sel.add(cb.dataset.v) : sel.delete(cb.dataset.v);
+          ans[id] = n.options.map(o => o.value).filter(v => sel.has(v));
+          draw(); onChange && onChange();
+        }));
+        $$('[data-info]', st).forEach(b => (b.onclick = () => $(`[data-infobox="${b.dataset.info}"]`, st).classList.toggle('hidden')));
+      }
+    });
+    $$('[data-field]', container).forEach(g => $$('button', g).forEach(b => (b.onclick = () => { ans[g.dataset.field] = Number(b.dataset.v); draw(); onChange && onChange(); })));
+    $$('[data-flag]', container).forEach(cb => (cb.onchange = () => { ans[cb.dataset.flag] = cb.checked; draw(); onChange && onChange(); }));
+    $$('[data-text]', container).forEach(ta => (ta.oninput = () => { ans[ta.dataset.text] = ta.value; onChange && onChange(); }));
+  };
+  draw();
+  return { redraw: draw };
+}
+
+// ---------- view: coding ----------
+async function viewCode() {
+  const [asg, cods] = await Promise.all([
+    fetchAll(() => sb.from('assignments').select('id,post_id,needs_recode,recode_reason,posts(id,external_id,batch_id)').eq('coder_id', S.me.id).order('id')),
+    fetchAll(() => sb.from('codings').select('id,assignment_id,answers,codebook_version,duration_sec,updated_at').eq('coder_id', S.me.id)),
+  ]);
+  const byAsg = new Map(cods.map(c => [c.assignment_id, c]));
+  const batchSel = store.get('code_batch', 'all');
+  const st = { cur: null, items: [] };
+  const app = $('#app');
+  if (!asg.length) { app.innerHTML = `<div class="card">${t('no_posts')}</div>`; return; }
+  app.innerHTML = `<div class="coding">
+    <div class="card queue"><div class="row" style="justify-content:space-between"><b>${t('queue')}</b>
+      <select id="qb"><option value="all">${t('all')}</option>${S.batches.filter(b => asg.some(a => a.posts.batch_id === b.id)).map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></div>
+      <div class="progress"><div id="qprog"></div></div><div class="small muted" id="qcount"></div><div id="qlist" style="margin-top:6px"></div></div>
+    <div class="card postbox" id="post"><div class="muted">${t('select_post')}</div></div>
+    <div class="card form" id="formcard"><div class="row" style="justify-content:space-between;margin-bottom:8px"><b>${t('codebook')} ${esc(S.codebook.version)}</b><button class="btn sm" id="cbopen">${t('codebook')}</button></div><div id="form"></div>
+      <div class="savebar"><button class="btn primary" id="savebtn" disabled>${t('save_next')}</button><span class="small muted" id="probs"></span></div></div>
+  </div>`;
+  $('#qb').value = batchSel;
+  $('#cbopen').onclick = () => modal(codebookHtml(CB.def()));
+  const status = a => { const c = byAsg.get(a.id); if (a.needs_recode) return 'recode'; if (c && c.codebook_version !== S.codebook.version) return 'recode'; return c ? 'done' : 'todo'; };
+  const drawList = () => {
+    const b = $('#qb').value; store.set('code_batch', b);
+    st.items = asg.filter(a => b === 'all' || String(a.posts.batch_id) === b);
+    const done = st.items.filter(a => status(a) === 'done').length;
+    $('#qprog').style.width = (st.items.length ? (100 * done) / st.items.length : 0) + '%';
+    $('#qcount').textContent = `${done} / ${st.items.length} ${t('done')}`;
+    $('#qlist').innerHTML = st.items.map(a => { const s = status(a); return `<div class="item ${st.cur && st.cur.id === a.id ? 'cur' : ''}" data-a="${a.id}"><span>${esc(a.posts.external_id)}</span><span class="dot ${s}" title="${t(s)}"></span></div>`; }).join('');
+    $$('#qlist .item').forEach(el => (el.onclick = () => open(asg.find(a => a.id === Number(el.dataset.a)))));
+  };
+  $('#qb').onchange = drawList;
+  let timer0 = 0, formState = null;
+  const open = async a => {
+    st.cur = a; drawList();
+    const { data: post, error } = await sb.from('posts').select('*').eq('id', a.post_id).single();
+    if (error) return fail(error);
+    const c = byAsg.get(a.id);
+    let banner = '';
+    if (a.needs_recode) banner += `<div class="banner warn"><b>${t('recode_banner')}</b>${a.recode_reason ? ': ' + esc(a.recode_reason) : ''}</div>`;
+    if (c && c.codebook_version !== S.codebook.version) banner += `<div class="banner warn">${esc(t('old_version', { v: c.codebook_version, c: S.codebook.version }))}</div>`;
+    $('#post').innerHTML = `${banner}<div class="row" style="justify-content:space-between;margin-bottom:10px"><b>${esc(post.external_id)}</b>
+      ${post.text_original ? `<button class="btn sm" id="origbtn">${t('show_orig')}${post.original_lang ? ' (' + esc(post.original_lang) + ')' : ''}</button>` : ''}</div>
+      <div class="posttext">${esc(post.text_en)}</div><div class="origtext hidden" id="orig">${esc(post.text_original || '')}</div>`;
+    if (post.text_original) $('#origbtn').onclick = () => { const o = $('#orig'); o.classList.toggle('hidden'); $('#origbtn').textContent = o.classList.contains('hidden') ? t('show_orig') : t('hide_orig'); };
+    formState = { ans: c ? JSON.parse(JSON.stringify(c.answers)) : {} };
+    timer0 = Date.now();
+    const upd = () => { const p = CB.problems(formState.ans); $('#savebtn').disabled = p.length > 0; $('#probs').textContent = [...new Set(p)].join(' · '); };
+    codingForm($('#form'), formState, upd); upd();
+    $('#formcard').scrollTop = 0;
+  };
+  $('#savebtn').onclick = async () => {
+    const a = st.cur; if (!a) return;
+    const answers = CB.finalize(formState.ans);
+    const prev = byAsg.get(a.id);
+    const dur = (prev ? prev.duration_sec : 0) + Math.round((Date.now() - timer0) / 1000);
+    let res;
+    if (prev) res = await sb.from('codings').update({ answers, codebook_version: S.codebook.version, duration_sec: dur }).eq('id', prev.id).select().single();
+    else res = await sb.from('codings').insert({ assignment_id: a.id, post_id: a.post_id, coder_id: S.me.id, answers, codebook_version: S.codebook.version, duration_sec: dur }).select().single();
+    if (res.error) return fail(res.error);
+    byAsg.set(a.id, res.data); a.needs_recode = false;
+    toast(t('saved'));
+    const i = st.items.indexOf(a);
+    const next = st.items.slice(i + 1).find(x => status(x) !== 'done') || st.items.find(x => status(x) !== 'done');
+    if (next) open(next); else drawList();
+  };
+  drawList();
+  const first = st.items.find(a => status(a) !== 'done');
+  if (first) open(first);
+}
+
+// ---------- shared data loading for reviewers ----------
+async function loadReviewData(batchId) {
+  const postQ = () => { let q = sb.from('posts').select('id,external_id,batch_id,text_en,text_original,original_lang').order('id'); if (batchId !== 'all') q = q.eq('batch_id', batchId); return q; };
+  const posts = await fetchAll(postQ);
+  const ids = new Set(posts.map(p => p.id));
+  const [cods, coders, adjs, metas] = await Promise.all([
+    fetchAll(() => sb.from('codings').select('*').order('id')),
+    fetchAll(() => sb.from('coders').select('*').order('email')),
+    fetchAll(() => sb.from('adjudications').select('*')),
+    fetchAll(() => sb.from('post_meta').select('*')),
+  ]);
+  const codings = cods.filter(c => ids.has(c.post_id));
+  const byPost = new Map(); codings.forEach(c => { if (!byPost.has(c.post_id)) byPost.set(c.post_id, []); byPost.get(c.post_id).push(c); });
+  return { posts, codings, byPost, coders, coderById: new Map(coders.map(c => [c.id, c])),
+    adj: new Map(adjs.filter(a => ids.has(a.post_id)).map(a => [a.post_id, a])),
+    meta: new Map(metas.map(m => [m.post_id, m.meta])) };
+}
+function batchSelect(id, val) {
+  return `<select id="${id}"><option value="all">${t('all')}</option>${S.batches.map(b => `<option value="${b.id}" ${String(val) === String(b.id) ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select>`;
+}
+
+// variables for agreement, derived from the codebook
+function agreementVars(def) {
+  const vars = [];
+  vars.push({ id: 'proselytising', label: L({ en: 'Proselytising (binary)', hu: 'Proszelita (bináris)' }), dist: AGR.nominal, get: a => (a.outcome ? (def.outcomes[a.outcome] ? def.outcomes[a.outcome].proselytising : null) : null), heat: true });
+  vars.push({ id: 'outcome', label: L({ en: 'Outcome (N1/N2/N3/P)', hu: 'Eredmény (N1/N2/N3/P)' }), dist: AGR.nominal, get: a => a.outcome || null, heat: true });
+  def.flow.forEach(n => {
+    if (n.type === 'single') vars.push({ id: n.id, label: L(n.label), dist: AGR.nominal, get: a => (a[n.id] == null ? null : a[n.id]), node: n.id, heat: true });
+    if (n.type === 'multi') {
+      vars.push({ id: n.id + '_set', label: L({ en: 'Code set (MASI)', hu: 'Kódhalmaz (MASI)' }), dist: AGR.masi, get: a => (a.outcome ? a[n.id] || [] : null), node: n.id, heat: true });
+      n.options.forEach(o => vars.push({ id: o.value, label: L(o.label), dist: AGR.nominal, get: a => (a.outcome ? ((a[n.id] || []).includes(o.value) ? 1 : 0) : null), code: true }));
+    }
+    if (n.type === 'primary') vars.push({ id: n.id, label: L(n.label), dist: AGR.nominal, get: a => a[n.id] || null, node: n.id, heat: true });
+  });
+  vars.push({ id: 'confidence', label: L({ en: 'Confidence (interval)', hu: 'Biztonság (intervallum)' }), dist: AGR.interval, get: a => (a.confidence == null ? null : Number(a.confidence)) });
+  return vars;
+}
+// first node where coders diverge (following the decision order)
+function divergence(list, def) {
+  if (list.length < 2) return null;
+  for (const n of def.flow) {
+    const vals = list.map(c => c.answers[n.id]).map(v => (v === undefined ? null : AGR.key(v)));
+    if (vals.every(v => v === null)) continue;
+    if (new Set(vals).size > 1) return n.id;
+  }
+  return 'none';
+}
+const alphaClass = (a, thr) => (a == null ? '' : a >= thr ? 'alpha-ok' : a >= 0.667 ? 'alpha-mid' : 'alpha-bad');
+const heatColor = v => { if (v == null) return '#eef1f5'; const r = Math.round(200 + (1 - v) * 40), g = Math.round(90 + v * 110), b = Math.round(90 + v * 30); return v >= 0.999 ? '#cdebd8' : v <= 0.001 ? '#f3c4c4' : `rgb(${r},${g},${b})`; };
+
+function postDetail(R, p, def, extra) {
+  const list = R.byPost.get(p.id) || [];
+  const fieldsHtml = c => {
+    const a = c.answers; const rows = [];
+    def.flow.forEach(n => { if (a[n.id] !== undefined) rows.push([L(n.label).replace(/^\d+\.\s*/, ''), Array.isArray(a[n.id]) ? a[n.id].join(', ') : CB.optLabel(n.id, a[n.id]), n.id]); });
+    rows.push([t('outcome'), a.outcome, 'outcome']);
+    (def.fields || []).forEach(f => { if (a[f.id] !== undefined && a[f.id] !== '' && a[f.id] !== false) rows.push([L(f.label), a[f.id] === true ? '✓' : a[f.id], f.id]); });
+    return rows;
+  };
+  const allRows = list.map(fieldsHtml);
+  const keys = [...new Set(allRows.flat().map(r => r[2]))];
+  const diffKeys = new Set(keys.filter(k => new Set(allRows.map(rs => JSON.stringify((rs.find(r => r[2] === k) || [])[1]))).size > 1 && !['comment'].includes(k)));
+  const meta = R.meta.get(p.id);
+  return `<h2>${esc(p.external_id)}</h2>
+    <div class="posttext" style="font-size:14px">${esc(p.text_en)}</div>
+    ${p.text_original ? `<details style="margin-top:8px"><summary class="small">${t('show_orig')}</summary><div class="origtext">${esc(p.text_original)}</div></details>` : ''}
+    ${meta ? `<details style="margin-top:8px"><summary class="small">metadata</summary><div class="kv" style="margin-top:6px">${Object.keys(meta).map(k => `<div>${esc(k)}</div><div>${esc(meta[k])}</div>`).join('')}</div></details>` : ''}
+    <h3>${t('coders_n')}</h3><div class="side">${list.map((c, i) => { const cd = R.coderById.get(c.coder_id); return `<div class="c"><b>${esc(cd ? cd.display_name || cd.email : c.coder_id)}</b> <span class="small muted">${esc(c.codebook_version)} · ${c.duration_sec}s</span>
+      <div class="kv" style="margin-top:6px">${allRows[i].map(r => `<div>${esc(r[0])}</div><div class="${diffKeys.has(r[2]) ? 'diff' : ''}">${esc(r[1])}</div>`).join('')}</div></div>`; }).join('')}</div>
+    ${extra || ''}`;
+}
+
+// ---------- view: agreement ----------
+async function viewAgreement() {
+  const bsel = store.get('agr_batch', S.batches.length ? String(S.batches[0].id) : 'all');
+  const R = await loadReviewData(bsel);
+  const def = CB.def();
+  const vars = agreementVars(def);
+  const multi = R.posts.filter(p => (R.byPost.get(p.id) || []).length >= 2);
+  const units = v => multi.map(p => R.byPost.get(p.id).map(c => v.get(c.answers)));
+  const res = vars.map(v => ({ v, ...AGR.alpha(units(v), v.dist), pct: AGR.percentAgreement(units(v), v.dist) }));
+  const coderIds = [...new Set(R.codings.map(c => c.coder_id))];
+  const name = id => { const c = R.coderById.get(id); return c ? c.display_name || c.email : id.slice(0, 6); };
+
+  let html = `<div class="card" style="margin-bottom:16px"><div class="row"><b>${t('batch')}</b>${batchSelect('ab', bsel)}<span class="muted small">${multi.length} ${t('posts')} · ${coderIds.length} ${t('coders_n').toLowerCase()}</span></div></div>`;
+  if (!multi.length) { $('#app').innerHTML = html + `<div class="card">${t('no_overlap')}</div>`; $('#ab').onchange = e => { store.set('agr_batch', e.target.value); render(); }; return; }
+
+  // alpha table
+  html += `<div class="grid2"><div class="card"><h2>Krippendorff α</h2><p class="small muted">${t('agr_intro')}</p>
+    <table class="data"><tr><th>${t('variable')}</th><th>${t('units')}</th><th>${t('alpha')}</th><th>${t('pct')}</th></tr>
+    ${res.map(r => `<tr><td>${r.v.code ? '&nbsp;&nbsp;' : ''}${esc(r.v.label)}</td><td>${r.units}</td><td class="${alphaClass(r.alpha, r.v.id === 'proselytising' ? 0.8 : 0.667)}">${r.novar ? '<span class="muted small">' + t('novar') + '</span>' : fmt(r.alpha, 3)}</td><td>${r.pct == null ? '–' : Math.round(r.pct * 100) + '%'}</td></tr>`).join('')}
+    </table></div>`;
+
+  // divergence summary
+  const div = new Map(); multi.forEach(p => { const d = divergence(R.byPost.get(p.id), def); div.set(d, (div.get(d) || 0) + 1); });
+  const order = [...def.flow.map(n => n.id), 'none'];
+  const maxd = Math.max(...div.values());
+  html += `<div class="card"><h2>${t('diverge_title')}</h2><div class="bars">${order.filter(k => div.has(k)).map(k => `<div class="b"><div class="l">${esc(k === 'none' ? t('diverge_none') : L(CB.node(k).label))}</div><div class="track"><div style="width:${(100 * div.get(k)) / maxd}%;background:${k === 'none' ? 'var(--green)' : 'var(--amber)'}"></div></div><div class="v">${div.get(k)} (${Math.round((100 * div.get(k)) / multi.length)}%)</div></div>`).join('')}</div>`;
+
+  // coder pair confusion
+  const outs = Object.keys(def.outcomes);
+  html += `<h3>${t('pair_title')}</h3><div class="row"><select id="pa">${coderIds.map(id => `<option value="${id}">${esc(name(id))}</option>`).join('')}</select> × <select id="pb">${coderIds.map((id, i) => `<option value="${id}" ${i === 1 ? 'selected' : ''}>${esc(name(id))}</option>`).join('')}</select></div><div id="conf" style="margin-top:8px"></div></div></div>`;
+
+  // heatmap
+  const hv = vars.filter(v => v.heat);
+  const rows = multi.map(p => { const list = R.byPost.get(p.id); const cells = hv.map(v => AGR.unitAgreement(list.map(c => v.get(c.answers)), v.dist)); const vals = cells.filter(x => x != null); return { p, cells, score: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 1, n: list.length }; });
+  html += `<div class="card" style="margin-top:16px"><h2>${t('heat_title')}</h2><p class="small muted">${t('heat_help')}</p>
+    <div class="row" style="margin-bottom:8px"><label class="flag"><input type="checkbox" id="onlyd"> ${t('only_disagree')}</label><label class="flag"><input type="checkbox" id="sortd" checked> ${t('sort_dis')}</label></div>
+    <div class="heat-wrap" id="heat"></div></div>`;
+
+  // coder profiles
+  html += `<div class="card" style="margin-top:16px"><h2>${t('coder_title')}</h2><table class="data"><tr><th>${t('coders_n')}</th><th>n</th>${outs.map(o => `<th>${esc(o)}</th>`).join('')}<th>${t('mean_conf')}</th><th>${t('mean_time')}</th><th>flags</th></tr>
+    ${coderIds.map(id => { const cs = R.codings.filter(c => c.coder_id === id); const n = cs.length;
+      const conf = cs.map(c => Number(c.answers.confidence)).filter(x => !isNaN(x));
+      const fl = cs.filter(c => c.answers.flag_codebook || c.answers.flag_translation || c.answers.flag_irony).length;
+      return `<tr><td>${esc(name(id))}</td><td>${n}</td>${outs.map(o => { const k = cs.filter(c => c.answers.outcome === o).length; return `<td>${k} <span class="muted small">(${n ? Math.round((100 * k) / n) : 0}%)</span></td>`; }).join('')}<td>${fmt(conf.reduce((a, b) => a + b, 0) / (conf.length || 1), 2)}</td><td>${fmt(median(cs.map(c => c.duration_sec)), 0)}</td><td>${fl}</td></tr>`; }).join('')}</table></div>`;
+
+  $('#app').innerHTML = html;
+  $('#ab').onchange = e => { store.set('agr_batch', e.target.value); render(); };
+
+  const drawConf = () => {
+    const A = $('#pa').value, B = $('#pb').value; const m = {}; outs.forEach(a => { m[a] = {}; outs.forEach(b => (m[a][b] = 0)); });
+    let n = 0;
+    multi.forEach(p => { const l = R.byPost.get(p.id); const ca = l.find(c => c.coder_id === A), cb = l.find(c => c.coder_id === B); if (ca && cb && ca.answers.outcome && cb.answers.outcome) { m[ca.answers.outcome][cb.answers.outcome]++; n++; } });
+    $('#conf').innerHTML = A === B ? '' : `<table class="heat"><tr><th>${esc(name(A))} ↓ / ${esc(name(B))} →</th>${outs.map(o => `<th>${esc(o)}</th>`).join('')}</tr>${outs.map(a => `<tr><th>${esc(a)}</th>${outs.map(b => `<td style="background:${m[a][b] ? (a === b ? '#cdebd8' : '#f3c4c4') : '#f6f8fb'}">${m[a][b]}</td>`).join('')}</tr>`).join('')}</table><div class="small muted">n = ${n}</div>`;
+  };
+  $('#pa').onchange = $('#pb').onchange = drawConf; drawConf();
+
+  const drawHeat = () => {
+    let rs = rows.slice();
+    if ($('#onlyd').checked) rs = rs.filter(r => r.score < 0.999);
+    if ($('#sortd').checked) rs.sort((a, b) => a.score - b.score);
+    $('#heat').innerHTML = `<table class="heat"><tr><th>post</th><th>n</th>${hv.map(v => `<th title="${esc(v.label)}">${esc(v.node || v.id)}</th>`).join('')}<th>${R.adj.size ? 'gold' : ''}</th></tr>
+      ${rs.map(r => `<tr><td class="lab" data-p="${r.p.id}">${esc(r.p.external_id)}</td><td>${r.n}</td>${r.cells.map(c => `<td style="background:${heatColor(c)}">${c == null ? '' : Math.round(c * 100)}</td>`).join('')}<td>${R.adj.has(r.p.id) ? '✓' : ''}</td></tr>`).join('')}</table>`;
+    $$('#heat td.lab').forEach(td => (td.onclick = () => {
+      const p = R.posts.find(x => x.id === Number(td.dataset.p));
+      const m = modal(postDetail(R, p, def, isAdmin() ? `<div class="row" style="margin-top:12px"><button class="btn" id="sendback">${t('send_back')}</button></div>` : ''));
+      const sbb = $('#sendback', m.el);
+      if (sbb) sbb.onclick = async () => { if (!confirm(t('confirm_send_back'))) return; const reason = prompt(t('rationale')) || null; const { error } = await sb.from('assignments').update({ needs_recode: true, recode_reason: reason }).eq('post_id', p.id); if (error) fail(error); else { toast('OK'); m.close(); } };
+    }));
+  };
+  $('#onlyd').onchange = $('#sortd').onchange = drawHeat; drawHeat();
+}
+
+// ---------- view: adjudication ----------
+async function viewAdjudicate() {
+  const bsel = store.get('adj_batch', S.batches.length ? String(S.batches[0].id) : 'all');
+  const R = await loadReviewData(bsel); const def = CB.def();
+  const onlyD = store.get('adj_only', true);
+  const multi = R.posts.filter(p => (R.byPost.get(p.id) || []).length >= 2);
+  const disagrees = p => divergence(R.byPost.get(p.id), def) !== 'none';
+  const list = multi.filter(p => !onlyD || disagrees(p));
+  $('#app').innerHTML = `<div class="card" style="margin-bottom:16px"><div class="row"><b>${t('batch')}</b>${batchSelect('jb', bsel)}
+      <label class="flag"><input type="checkbox" id="jo" ${onlyD ? 'checked' : ''}> ${t('only_disagree')}</label>
+      <span class="small muted">${list.filter(p => R.adj.has(p.id)).length} / ${list.length} ${t('adjudicated')}</span></div><p class="small muted" style="margin:6px 0 0">${t('adj_intro')}</p></div>
+    <div class="coding" style="grid-template-columns:200px 1fr 420px"><div class="card queue" id="jl"></div><div class="card" id="jd"><div class="muted">${t('select_post')}</div></div>
+    <div class="card form"><div id="jf"></div><div class="f" style="margin-top:10px"><label class="t"><b>${t('rationale')}</b></label><textarea id="jr"></textarea></div>
+    <div class="savebar"><button class="btn primary" id="js" disabled>${t('save_gold')}</button><span class="small muted" id="jp"></span></div></div></div>`;
+  $('#jb').onchange = e => { store.set('adj_batch', e.target.value); render(); };
+  $('#jo').onchange = e => { store.set('adj_only', e.target.checked); render(); };
+  let cur = null, fs = null;
+  const drawL = () => { $('#jl').innerHTML = list.map(p => `<div class="item ${cur && cur.id === p.id ? 'cur' : ''}" data-p="${p.id}"><span>${esc(p.external_id)}</span><span class="dot ${R.adj.has(p.id) ? 'done' : disagrees(p) ? 'recode' : ''}"></span></div>`).join('') || `<div class="muted">–</div>`; $$('#jl .item').forEach(el => (el.onclick = () => open(list.find(p => p.id === Number(el.dataset.p))))); };
+  const open = p => {
+    cur = p; drawL();
+    $('#jd').innerHTML = postDetail(R, p, def);
+    const ex = R.adj.get(p.id);
+    fs = { ans: ex ? JSON.parse(JSON.stringify(ex.answers)) : {} };
+    $('#jr').value = ex ? ex.rationale || '' : '';
+    const upd = () => { const pr = CB.walk(fs.ans).outcome ? [] : [t('complete_flow')]; $('#js').disabled = pr.length > 0; $('#jp').textContent = pr.join(' · '); };
+    codingForm($('#jf'), fs, upd); upd();
+  };
+  $('#js').onclick = async () => {
+    const row = { post_id: cur.id, adjudicator_id: S.me.id, codebook_version: S.codebook.version, answers: CB.finalize(fs.ans), rationale: $('#jr').value, updated_at: new Date().toISOString() };
+    const { data, error } = await sb.from('adjudications').upsert(row).select().single();
+    if (error) return fail(error);
+    R.adj.set(cur.id, data); toast(t('saved'));
+    const next = list.find(p => !R.adj.has(p.id)); if (next) open(next); else drawL();
+  };
+  drawL(); const first = list.find(p => !R.adj.has(p.id)); if (first) open(first);
+}
+
+// ---------- view: analysis ----------
+async function viewAnalysis() {
+  const bsel = store.get('an_batch', 'all');
+  const R = await loadReviewData(bsel); const def = CB.def();
+  const metaKeys = [...new Set([...R.meta.values()].flatMap(m => Object.keys(m || {})))];
+  const gk = store.get('an_group', metaKeys.includes('echantillon') ? 'echantillon' : metaKeys[0] || '');
+  const src = store.get('an_src', 'codings');
+  const labels = src === 'gold' ? [...R.adj.values()].map(a => ({ post_id: a.post_id, answers: a.answers })) : R.codings;
+  const outs = Object.keys(def.outcomes);
+  const colors = { N1: '#b9cbe8', N2: '#7fa0d6', N3: '#3f6fb8', P: '#c00000' };
+  const groups = new Map();
+  labels.forEach(l => { const m = R.meta.get(l.post_id) || {}; const g = gk ? String(m[gk] == null ? '–' : m[gk]) : t('all'); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(l); });
+  const codes = CB.allCodes();
+  const cf = codes.map(c => ({ c, n: labels.filter(l => CB.multiNodes().some(n => (l.answers[n.id] || []).includes(c))).length, prim: labels.filter(l => l.answers.primary === c).length }));
+  const maxc = Math.max(1, ...cf.map(x => x.n));
+  const issues = R.codings.filter(c => c.answers.flag_codebook || Number(c.answers.confidence) === 1 || c.answers.flag_translation);
+  const pmap = new Map(R.posts.map(p => [p.id, p]));
+  const name = id => { const c = R.coderById.get(id); return c ? c.display_name || c.email : ''; };
+
+  $('#app').innerHTML = `<div class="card" style="margin-bottom:16px"><div class="row"><b>${t('batch')}</b>${batchSelect('nb', bsel)}
+      <b>${t('group_by')}</b><select id="ng"><option value="">${t('none')}</option>${metaKeys.map(k => `<option ${k === gk ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>
+      <b>${t('label_source')}</b><select id="ns"><option value="codings" ${src === 'codings' ? 'selected' : ''}>${t('all_codings')}</option><option value="gold" ${src === 'gold' ? 'selected' : ''}>${t('gold')}</option></select>
+      <span class="small muted">n = ${labels.length}</span></div></div>
+    <div class="grid2"><div class="card"><h2>${t('outcome_by')}</h2>
+      <div class="legend">${outs.map(o => `<span><i style="background:${colors[o] || '#999'}"></i>${esc(CB.outcomeLabel(o))}</span>`).join('')}</div>
+      <div class="bars">${[...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([g, ls]) => `<div class="b"><div class="l" title="${esc(g)}">${esc(g)}</div><div class="track">${outs.map(o => { const k = ls.filter(l => l.answers.outcome === o).length; return k ? `<div title="${esc(o)}: ${k}" style="width:${(100 * k) / ls.length}%;background:${colors[o] || '#999'}"></div>` : ''; }).join('')}</div><div class="v">${ls.length}</div></div>`).join('')}</div></div>
+    <div class="card"><h2>${t('freq')}</h2><div class="bars">${cf.map(x => `<div class="b"><div class="l">${esc(x.c)}</div><div class="track"><div style="width:${(100 * x.n) / maxc}%;background:#e08a8a"></div></div><div class="v">${x.n} <span class="muted">(${x.prim})</span></div></div>`).join('')}</div>
+      <p class="small muted">n (primary)</p></div></div>
+    <div class="card" style="margin-top:16px"><h2>${t('issues')} (${issues.length})</h2><div style="max-height:480px;overflow:auto"><table class="data"><tr><th>post</th><th>${t('coders_n')}</th><th>${t('outcome')}</th><th>conf.</th><th>flags</th><th>comment</th></tr>
+      ${issues.map(c => `<tr><td>${esc((pmap.get(c.post_id) || {}).external_id)}</td><td>${esc(name(c.coder_id))}</td><td>${summary(c.answers)}</td><td>${esc(c.answers.confidence)}</td><td>${[c.answers.flag_codebook ? 'codebook' : '', c.answers.flag_translation ? 'transl.' : '', c.answers.flag_irony ? 'irony' : ''].filter(Boolean).join(', ')}</td><td>${esc(c.answers.comment || '')}</td></tr>`).join('')}</table></div></div>`;
+  $('#nb').onchange = e => { store.set('an_batch', e.target.value); render(); };
+  $('#ng').onchange = e => { store.set('an_group', e.target.value); render(); };
+  $('#ns').onchange = e => { store.set('an_src', e.target.value); render(); };
+}
+
+// ---------- exports ----------
+function flatAnswers(a, def) {
+  const o = {};
+  o.outcome = a.outcome || '';
+  o.proselytising = a.outcome && def.outcomes[a.outcome] ? def.outcomes[a.outcome].proselytising : '';
+  def.flow.forEach(n => {
+    if (n.type === 'single' || n.type === 'primary') o[n.id === 'primary' ? 'primary_code' : n.id] = a[n.id] == null ? '' : a[n.id];
+    if (n.type === 'multi') { const s = a[n.id] || []; n.options.forEach(op => (o[op.value] = a.outcome ? (s.includes(op.value) ? 1 : 0) : '')); }
+  });
+  o.nonpros_type = a.outcome && def.outcomes[a.outcome] && !def.outcomes[a.outcome].proselytising ? a.outcome : '';
+  (def.fields || []).forEach(f => (o[f.id] = f.type === 'flag' ? (a[f.id] ? 1 : 0) : a[f.id] == null ? '' : a[f.id]));
+  return o;
+}
+function saveXlsx(sheets, fname) {
+  const wb = XLSX.utils.book_new();
+  Object.keys(sheets).forEach(n => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheets[n].length ? sheets[n] : [{}]), n.slice(0, 31)));
+  XLSX.writeFile(wb, fname);
+}
+const today = () => new Date().toISOString().slice(0, 10);
+function readme(extra) {
+  return [{ item: 'Exported', value: new Date().toISOString() }, { item: 'Exported by', value: S.me.email }, { item: 'Current codebook', value: S.codebook.version }, ...(extra || [])];
+}
+function codingRows(R, codings, def, withMeta) {
+  const pmap = new Map(R.posts.map(p => [p.id, p])); const bmap = new Map(S.batches.map(b => [b.id, b.name]));
+  return codings.map(c => { const p = pmap.get(c.post_id) || {}; const cd = R.coderById.get(c.coder_id) || {};
+    const row = { batch: bmap.get(p.batch_id) || '', external_id: p.external_id, coder: cd.display_name || '', coder_email: cd.email || '', codebook_version: c.codebook_version, ...flatAnswers(c.answers, def), duration_sec: c.duration_sec, created_at: c.created_at, updated_at: c.updated_at };
+    if (withMeta) { const m = R.meta.get(c.post_id) || {}; Object.keys(m).forEach(k => { if (!(k in row)) row['meta_' + k] = m[k]; }); }
+    return row; });
+}
+async function viewDownloads() {
+  const bsel = store.get('dl_batch', 'all');
+  let html = `<div class="card"><h2>${t('downloads')}</h2><div class="row" style="margin-bottom:14px"><b>${t('batch')}</b>${batchSelect('db', bsel)}</div><div style="display:grid;gap:8px;max-width:620px">
+    <button class="btn" data-dl="mine">${t('dl_mine')}</button>`;
+  if (isReviewer()) {
+    html += `<div class="row"><select id="dlc"></select><button class="btn" data-dl="coder">${t('dl_coder')}</button></div>
+      <button class="btn" data-dl="long">${t('dl_long')}</button><button class="btn" data-dl="wide">${t('dl_wide')}</button>
+      <button class="btn" data-dl="gold">${t('dl_gold')}</button><button class="btn" data-dl="agree">${t('dl_agree')}</button>
+      <button class="btn" data-dl="log">${t('dl_log')}</button>`;
+  }
+  html += `<button class="btn" data-dl="cb">${t('dl_cb')}</button></div></div>`;
+  $('#app').innerHTML = html;
+  $('#db').onchange = e => store.set('dl_batch', e.target.value);
+  if (isReviewer()) { const cs = await fetchAll(() => sb.from('coders').select('*').neq('role', 'pending').order('email')); $('#dlc').innerHTML = cs.map(c => `<option value="${c.id}">${esc(c.display_name || c.email)}</option>`).join(''); }
+  $$('[data-dl]').forEach(b => (b.onclick = () => doDownload(b.dataset.dl).catch(fail)));
+}
+async function doDownload(kind) {
+  const def = CB.def(); const b = $('#db').value; const bname = b === 'all' ? 'all' : (S.batches.find(x => String(x.id) === b) || {}).name || b;
+  const tag = `${bname.replace(/\W+/g, '_')}_${today()}`;
+  if (kind === 'cb') { const blob = new Blob([JSON.stringify(S.codebooks.map(c => ({ version: c.version, is_current: c.is_current, created_at: c.created_at, notes: c.notes, definition: c.definition })), null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `SPINE_codebook_versions_${today()}.json`; a.click(); return; }
+  if (kind === 'mine') {
+    const cods = await fetchAll(() => sb.from('codings').select('*,posts(external_id,batch_id)').eq('coder_id', S.me.id));
+    const rows = cods.filter(c => b === 'all' || String(c.posts.batch_id) === b).map(c => ({ external_id: c.posts.external_id, codebook_version: c.codebook_version, ...flatAnswers(c.answers, def), duration_sec: c.duration_sec, updated_at: c.updated_at }));
+    return saveXlsx({ codings: rows, readme: readme() }, `SPINE_my_codings_${tag}.xlsx`);
+  }
+  const R = await loadReviewData(b);
+  if (kind === 'coder') { const id = $('#dlc').value; const cd = R.coderById.get(id) || {}; return saveXlsx({ codings: codingRows(R, R.codings.filter(c => c.coder_id === id), def, false), readme: readme([{ item: 'Coder', value: cd.email }]) }, `SPINE_codings_${(cd.display_name || cd.email || 'coder').replace(/\W+/g, '_')}_${tag}.xlsx`); }
+  if (kind === 'long') return saveXlsx({ codings_long: codingRows(R, R.codings, def, true), readme: readme() }, `SPINE_codings_long_${tag}.xlsx`);
+  if (kind === 'wide') {
+    const coderIds = [...new Set(R.codings.map(c => c.coder_id))]; const nm = id => { const c = R.coderById.get(id) || {}; return (c.display_name || c.email || id).replace(/\W+/g, '_'); };
+    const rows = R.posts.map(p => { const row = { external_id: p.external_id }; const list = R.byPost.get(p.id) || []; row.n_coders = list.length;
+      coderIds.forEach(id => { const c = list.find(x => x.coder_id === id); const f = c ? flatAnswers(c.answers, def) : {}; ['outcome', 'primary_code', 'confidence'].forEach(k => (row[`${nm(id)}.${k}`] = f[k] == null ? '' : f[k])); row[`${nm(id)}.codes`] = c ? CB.multiNodes().flatMap(n => c.answers[n.id] || []).join('+') : ''; });
+      row.divergence = divergence(list, def) || ''; const g = R.adj.get(p.id); row.gold_outcome = g ? g.answers.outcome : ''; return row; });
+    return saveXlsx({ codings_wide: rows, readme: readme() }, `SPINE_codings_wide_${tag}.xlsx`);
+  }
+  if (kind === 'gold') {
+    const rows = R.posts.filter(p => R.adj.has(p.id)).map(p => { const g = R.adj.get(p.id); const m = R.meta.get(p.id) || {}; const ad = R.coderById.get(g.adjudicator_id) || {};
+      const row = { external_id: p.external_id, ...flatAnswers(g.answers, def), rationale: g.rationale || '', adjudicator: ad.email || '', codebook_version: g.codebook_version, n_coders: (R.byPost.get(p.id) || []).length };
+      Object.keys(m).forEach(k => { if (!(k in row)) row['meta_' + k] = m[k]; }); return row; });
+    return saveXlsx({ gold: rows, readme: readme([{ item: 'Note', value: 'Weights (if present in metadata) are the sampling weights per stratum.' }]) }, `SPINE_gold_${tag}.xlsx`);
+  }
+  if (kind === 'agree') {
+    const vars = agreementVars(def); const multi = R.posts.filter(p => (R.byPost.get(p.id) || []).length >= 2);
+    const units = v => multi.map(p => R.byPost.get(p.id).map(c => v.get(c.answers)));
+    const summ = vars.map(v => { const r = AGR.alpha(units(v), v.dist); return { variable: v.id, label: v.label, units: r.units, pairable_values: r.n, alpha: r.alpha == null ? (r.novar ? 'no variation' : '') : Number(r.alpha.toFixed(4)), pct_agreement: AGR.percentAgreement(units(v), v.dist) }; });
+    const per = multi.map(p => { const l = R.byPost.get(p.id); const row = { external_id: p.external_id, n_coders: l.length, divergence: divergence(l, def) }; vars.filter(v => v.heat).forEach(v => (row[v.id] = AGR.unitAgreement(l.map(c => v.get(c.answers)), v.dist))); return row; });
+    return saveXlsx({ alpha: summ, per_post: per, readme: readme([{ item: 'Method', value: "Krippendorff's alpha (nominal; MASI distance for code sets; interval for confidence). Per-post value = share of agreeing coder pairs." }]) }, `SPINE_agreement_${tag}.xlsx`);
+  }
+  if (kind === 'log') {
+    const log = await fetchAll(() => sb.from('coding_log').select('*').order('id'));
+    const pmap = new Map(R.posts.map(p => [p.id, p]));
+    const rows = log.filter(l => pmap.has(l.post_id)).map(l => ({ at: l.at, coder_email: (R.coderById.get(l.coder_id) || {}).email || l.coder_id, external_id: pmap.get(l.post_id).external_id, action: l.action, codebook_version: l.codebook_version, duration_sec: l.duration_sec, old_outcome: l.old_answers ? l.old_answers.outcome : '', new_outcome: l.new_answers ? l.new_answers.outcome : '', old_answers: l.old_answers ? JSON.stringify(l.old_answers) : '', new_answers: l.new_answers ? JSON.stringify(l.new_answers) : '' }));
+    return saveXlsx({ log: rows, readme: readme() }, `SPINE_coding_log_${tag}.xlsx`);
+  }
+}
+
+// ---------- view: admin ----------
+async function viewAdmin() {
+  const sub = store.get('admin_sub', 'import');
+  const subs = ['import', 'assign', 'coders', 'cb_edit'];
+  $('#app').innerHTML = `<div class="sub">${subs.map(s => `<button data-s="${s}" class="${s === sub ? 'on' : ''}">${t(s)}</button>`).join('')}</div><div id="adm"></div>`;
+  $$('.sub button').forEach(b => (b.onclick = () => { store.set('admin_sub', b.dataset.s); render(); }));
+  await ({ import: admImport, assign: admAssign, coders: admCoders, cb_edit: admCodebook })[sub]();
+}
+
+async function admImport() {
+  const counts = await Promise.all(S.batches.map(async b => { const { count } = await sb.from('posts').select('id', { count: 'exact', head: true }).eq('batch_id', b.id); return count; }));
+  $('#adm').innerHTML = `<div class="grid2"><div class="card"><h2>${t('import')}</h2>
+    <p class="small muted">XLSX or CSV. The text sheet needs an ID and an English text column. Every other column — and every column of an optional metadata sheet joined on the ID — is stored as metadata, hidden from coders.</p>
+    <div class="row"><b>${t('file')}</b><input type="file" id="if" accept=".xlsx,.xls,.csv"></div><div id="imap" style="margin-top:12px"></div></div>
+    <div class="card"><h2>${t('batches')}</h2><table class="data"><tr><th>${t('batch')}</th><th>${t('posts')}</th><th></th></tr>${S.batches.map((b, i) => `<tr><td><b>${esc(b.name)}</b><div class="small muted">${esc(b.description || '')}</div></td><td>${counts[i]}</td><td class="small muted">${esc((b.created_at || '').slice(0, 10))}</td></tr>`).join('')}</table></div></div>`;
+  $('#if').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+    const sheets = wb.SheetNames; const data = {}; sheets.forEach(s => (data[s] = XLSX.utils.sheet_to_json(wb.Sheets[s], { defval: null })));
+    const cols = s => (data[s] && data[s].length ? Object.keys(data[s][0]) : []);
+    const guessSheet = sheets.includes('coding_sample') ? 'coding_sample' : sheets[0];
+    const guessMeta = sheets.includes('key') ? 'key' : '';
+    const pick = (cs, cands) => cs.find(c => cands.includes(c.toLowerCase())) || '';
+    const draw = () => {
+      const ts = $('#is') ? $('#is').value : guessSheet; const ms = $('#ims') ? $('#ims').value : guessMeta;
+      const tc = cols(ts), mc = ms ? cols(ms) : [];
+      const sel = (id, cs, v, opt) => `<select id="${id}">${opt ? `<option value="">${t('none')}</option>` : ''}${cs.map(c => `<option ${c === v ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>`;
+      $('#imap').innerHTML = `<div class="kv" style="grid-template-columns:200px 1fr;gap:8px;font-size:13px">
+        <div>${t('sheet_text')}</div><div>${sel('is', sheets, ts)}</div>
+        <div>${t('col_id')}</div><div>${sel('ic_id', tc, pick(tc, ['coding_id', 'id', 'post_id', 'external_id']))}</div>
+        <div>${t('col_en')}</div><div>${sel('ic_en', tc, pick(tc, ['text_en', 'document_text_en', 'english', 'text']))}</div>
+        <div>${t('col_orig')}</div><div>${sel('ic_or', tc, pick(tc, ['text_original', 'original', 'document_text']), true)}</div>
+        <div>${t('col_lang')}</div><div>${sel('ic_lg', tc, pick(tc, ['original_lang', 'lang', 'language']), true)}</div>
+        <div>${t('sheet_meta')}</div><div>${sel('ims', sheets, ms, true)}</div>
+        <div>${t('col_join')}</div><div>${sel('ic_j', mc, pick(mc, ['coding_id', 'id', 'external_id']), true)}</div>
+        <div>${t('batch_name')}</div><div><input type="text" id="ibn" list="ibl" value="${esc(f.name.replace(/\.\w+$/, ''))}" style="width:100%"><datalist id="ibl">${S.batches.map(b => `<option>${esc(b.name)}</option>`).join('')}</datalist></div>
+        <div></div><div class="small muted">${(data[ts] || []).length} rows</div>
+      </div><div class="row" style="margin-top:12px"><button class="btn primary" id="igo">${t('do_import')}</button><span id="ist" class="small muted"></span></div>`;
+      $('#is').onchange = draw; $('#ims').onchange = draw;
+      $('#igo').onclick = () => runImport(data).catch(fail);
+    };
+    draw();
+  };
+  async function runImport(data) {
+    const ts = $('#is').value, cid = $('#ic_id').value, cen = $('#ic_en').value, cor = $('#ic_or').value, clg = $('#ic_lg').value, ms = $('#ims').value, cj = $('#ic_j').value, bn = $('#ibn').value.trim();
+    if (!cid || !cen || !bn) return toast('ID, English text and batch name are required', true);
+    $('#igo').disabled = true;
+    let batch = S.batches.find(b => b.name === bn);
+    if (!batch) { const { data: nb, error } = await sb.from('batches').insert({ name: bn, created_by: S.me.id }).select().single(); if (error) throw error; batch = nb; S.batches.push(nb); }
+    const metaBy = new Map(); if (ms && cj) (data[ms] || []).forEach(r => metaBy.set(String(r[cj]), r));
+    const rows = (data[ts] || []).filter(r => r[cid] != null && r[cen] != null && String(r[cen]).trim() !== '');
+    let n = 0;
+    for (const part of chunk(rows, 200)) {
+      const payload = part.map(r => ({ batch_id: batch.id, external_id: String(r[cid]), text_en: String(r[cen]), text_original: cor && r[cor] != null ? String(r[cor]) : null, original_lang: clg && r[clg] != null ? String(r[clg]) : null }));
+      const { data: ins, error } = await sb.from('posts').upsert(payload, { onConflict: 'batch_id,external_id' }).select('id,external_id');
+      if (error) throw error;
+      const metas = ins.map(p => { const src = part.find(r => String(r[cid]) === p.external_id) || {}; const m = {};
+        Object.keys(src).forEach(k => { if (![cid, cen, cor, clg].includes(k)) m[k] = src[k]; });
+        const extra = metaBy.get(p.external_id); if (extra) Object.keys(extra).forEach(k => { if (k !== cj) m[k] = extra[k]; });
+        return { post_id: p.id, meta: m }; });
+      const { error: e2 } = await sb.from('post_meta').upsert(metas); if (e2) throw e2;
+      n += ins.length; $('#ist').textContent = `${n} / ${rows.length}`;
+    }
+    toast(t('imported', { n })); render();
+  }
+}
+
+async function admAssign() {
+  const coders = (await fetchAll(() => sb.from('coders').select('*').order('email'))).filter(c => c.role !== 'pending');
+  const bsel = store.get('as_batch', S.batches.length ? String(S.batches[0].id) : '');
+  const asg = await fetchAll(() => sb.from('assignments').select('id,coder_id,post_id,needs_recode,posts!inner(batch_id)').eq('posts.batch_id', bsel || -1));
+  const cods = await fetchAll(() => sb.from('codings').select('assignment_id,codebook_version'));
+  const done = new Map(cods.map(c => [c.assignment_id, c.codebook_version]));
+  const { count } = await sb.from('posts').select('id', { count: 'exact', head: true }).eq('batch_id', bsel || -1);
+  const versions = [...new Set(cods.map(c => c.codebook_version))].filter(v => v !== S.codebook.version);
+  $('#adm').innerHTML = `<div class="grid2"><div class="card"><h2>${t('assign')}</h2>
+    <div class="row"><b>${t('batch')}</b><select id="asb">${S.batches.map(b => `<option value="${b.id}" ${String(b.id) === bsel ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select><span class="small muted">${count || 0} ${t('posts')}</span></div>
+    <h3>${t('coders')}</h3>${coders.map(c => `<label class="flag"><input type="checkbox" class="asc" value="${c.id}"> ${esc(c.display_name || c.email)} <span class="muted small">(${esc(c.role)})</span></label>`).join('')}
+    <h3>${t('assign_mode')}</h3><label class="flag"><input type="radio" name="am" value="all" checked> ${t('mode_all')}</label>
+    <label class="flag"><input type="radio" name="am" value="split"> ${t('mode_split')}</label>
+    <div class="row small" style="margin:6px 0 0 22px">${t('overlap')} <input type="text" id="aov" value="20" style="width:60px"> %</div>
+    <div class="row" style="margin-top:14px"><button class="btn primary" id="ago">${t('do_assign')}</button></div>
+    ${versions.length ? `<h3>${t('recode_old')}</h3><div class="row">${versions.map(v => `<button class="btn" data-rv="${esc(v)}">${esc(v)} → ${esc(S.codebook.version)}</button>`).join('')}</div>` : ''}
+    </div><div class="card"><h2>${t('progress')}</h2><table class="data"><tr><th>${t('coders_n')}</th><th>${t('posts')}</th><th>${t('done')}</th><th>${t('recode')}</th></tr>
+    ${coders.map(c => { const a = asg.filter(x => x.coder_id === c.id); if (!a.length) return ''; const d = a.filter(x => done.has(x.id)).length; const r = a.filter(x => x.needs_recode).length; return `<tr><td>${esc(c.display_name || c.email)}</td><td>${a.length}</td><td>${d} <div class="progress" style="margin:2px 0"><div style="width:${(100 * d) / a.length}%"></div></div></td><td>${r}</td></tr>`; }).join('')}</table></div></div>`;
+  $('#asb').onchange = e => { store.set('as_batch', e.target.value); render(); };
+  $('#ago').onclick = async () => {
+    const sel = $$('.asc:checked').map(x => x.value); if (!sel.length) return toast('–', true);
+    const posts = await fetchAll(() => sb.from('posts').select('id').eq('batch_id', $('#asb').value).order('id'));
+    const mode = $$('input[name=am]').find(x => x.checked).value; const rows = [];
+    if (mode === 'all') posts.forEach(p => sel.forEach(c => rows.push({ post_id: p.id, coder_id: c, assigned_by: S.me.id })));
+    else {
+      const ov = Math.max(0, Math.min(100, Number($('#aov').value) || 0));
+      const shuffled = posts.map(p => [Math.random(), p]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+      const k = Math.round((shuffled.length * ov) / 100);
+      shuffled.slice(0, k).forEach(p => sel.forEach(c => rows.push({ post_id: p.id, coder_id: c, assigned_by: S.me.id })));
+      shuffled.slice(k).forEach((p, i) => rows.push({ post_id: p.id, coder_id: sel[i % sel.length], assigned_by: S.me.id }));
+    }
+    let n = 0; for (const part of chunk(rows, 500)) { const { data, error } = await sb.from('assignments').upsert(part, { onConflict: 'post_id,coder_id', ignoreDuplicates: true }).select('id'); if (error) return fail(error); n += data.length; }
+    toast(t('assigned', { n })); render();
+  };
+  $$('[data-rv]').forEach(b => (b.onclick = async () => {
+    const ids = (await fetchAll(() => sb.from('codings').select('assignment_id').eq('codebook_version', b.dataset.rv))).map(x => x.assignment_id);
+    for (const part of chunk(ids, 300)) { const { error } = await sb.from('assignments').update({ needs_recode: true, recode_reason: `codebook ${b.dataset.rv} → ${S.codebook.version}` }).in('id', part); if (error) return fail(error); }
+    toast('OK: ' + ids.length); render();
+  }));
+}
+
+async function admCoders() {
+  const coders = await fetchAll(() => sb.from('coders').select('*').order('created_at'));
+  const cods = await fetchAll(() => sb.from('codings').select('coder_id'));
+  $('#adm').innerHTML = `<div class="card"><h2>${t('coders')}</h2><p class="small muted">New coders create their own account on the login page (${t('signup')}); they appear here as <i>pending</i> until you give them a role.</p>
+    <table class="data"><tr><th>${t('name')}</th><th>${t('email')}</th><th>${t('role')}</th><th>codings</th><th></th></tr>
+    ${coders.map(c => `<tr><td><input type="text" data-n="${c.id}" value="${esc(c.display_name || '')}"></td><td>${esc(c.email)}</td><td><select data-r="${c.id}" ${c.id === S.me.id ? 'disabled' : ''}>${['pending', 'coder', 'adjudicator', 'admin'].map(r => `<option ${r === c.role ? 'selected' : ''}>${r}</option>`).join('')}</select></td><td>${cods.filter(x => x.coder_id === c.id).length}</td><td class="small muted">${esc((c.created_at || '').slice(0, 10))}</td></tr>`).join('')}</table></div>`;
+  $$('[data-r]').forEach(s => (s.onchange = async () => { const { error } = await sb.from('coders').update({ role: s.value }).eq('id', s.dataset.r); error ? fail(error) : toast(t('saved')); }));
+  $$('[data-n]').forEach(i => (i.onchange = async () => { const { error } = await sb.from('coders').update({ display_name: i.value }).eq('id', i.dataset.n); error ? fail(error) : toast(t('saved')); }));
+}
+
+async function admCodebook() {
+  const def = JSON.parse(JSON.stringify(CB.def()));
+  const bi = (path, obj, area) => `<div class="two"><div><div class="lbl">EN</div>${area ? `<textarea data-p="${path}.en">${esc(obj && obj.en)}</textarea>` : `<input type="text" data-p="${path}.en" value="${esc(obj && obj.en)}">`}</div>
+    <div><div class="lbl">HU</div>${area ? `<textarea data-p="${path}.hu">${esc(obj && obj.hu)}</textarea>` : `<input type="text" data-p="${path}.hu" value="${esc(obj && obj.hu)}">`}</div></div>`;
+  const draw = () => {
+    let html = `<div class="card cb-edit"><h2>${t('cb_current')}: ${esc(S.codebook.version)}</h2>
+      <div class="node"><b>Definition</b>${bi('definition', def.definition, true)}</div>`;
+    def.flow.forEach((n, i) => {
+      html += `<div class="node"><b>${esc(n.id)}</b> <span class="muted small">${esc(n.type)}</span>${bi(`flow.${i}.label`, n.label)}${n.help !== undefined ? `<div class="lbl">help</div>${bi(`flow.${i}.help`, n.help, true)}` : ''}`;
+      if (n.type === 'single') n.options.forEach((o, j) => (html += `<div class="lbl">option <b>${esc(o.value)}</b> → ${esc(o.next || o.outcome)}</div>${bi(`flow.${i}.options.${j}.label`, o.label)}`));
+      if (n.type === 'multi') {
+        n.options.forEach((o, j) => {
+          html += `<details style="margin-top:8px"><summary><b>${esc(o.value)}</b> ${esc(L(o.label))}</summary>
+            <div class="lbl">label</div>${bi(`flow.${i}.options.${j}.label`, o.label)}
+            ${['definition', 'include', 'exclude', 'example'].map(k => `<div class="lbl">${k}</div>${bi(`flow.${i}.options.${j}.${k}`, o[k], true)}`).join('')}
+            <div class="lbl">cues</div><input type="text" data-p="flow.${i}.options.${j}.cues" value="${esc(o.cues || '')}"></details>`;
+        });
+        html += `<div class="row" style="margin-top:8px"><input type="text" id="newcode" placeholder="P8"><button class="btn sm" id="addcode" data-i="${i}">${t('add_code')}</button></div>`;
+      }
+      html += '</div>';
+    });
+    html += `<div class="node"><b>${t('outcome')}</b>${Object.keys(def.outcomes).map(k => `<div class="lbl">${esc(k)}</div>${bi(`outcomes.${k}.label`, def.outcomes[k].label)}`).join('')}</div>`;
+    html += `<div class="node"><b>${t('boundary')}</b>${(def.boundary_rules || []).map((r, i) => `<div class="lbl">${esc(r.pair)}</div>${bi(`boundary_rules.${i}.rule`, r.rule, true)}`).join('')}</div>`;
+    html += `<details class="node"><summary>${t('cb_raw')}</summary><textarea id="raw" style="min-height:300px;font-family:monospace;font-size:12px">${esc(JSON.stringify(def, null, 2))}</textarea><button class="btn sm" id="rawapply">Apply JSON</button></details>
+      <div class="node"><div class="row"><b>${t('cb_new_version')}</b><input type="text" id="nv" placeholder="v1.2"></div><div class="lbl">${t('cb_notes')}</div><textarea id="nn"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn primary" id="cbsave">${t('cb_save')}</button></div></div></div>
+      <div class="card" style="margin-top:16px"><h2>${t('cb_history')}</h2><table class="data"><tr><th>version</th><th>date</th><th>notes</th><th></th></tr>${S.codebooks.slice().reverse().map(c => `<tr><td><b>${esc(c.version)}</b>${c.is_current ? ' <span class="pill ok">current</span>' : ''}</td><td>${esc((c.created_at || '').slice(0, 10))}</td><td>${esc(c.notes || '')}</td><td>${c.is_current ? '' : `<button class="btn sm" data-cur="${c.id}">make current</button>`}</td></tr>`).join('')}</table></div>`;
+    $('#adm').innerHTML = html;
+    $$('[data-p]').forEach(el => (el.oninput = () => {
+      const path = el.dataset.p.split('.'); let o = def;
+      for (let i = 0; i < path.length - 1; i++) { const k = path[i]; if (o[k] == null) o[k] = /^\d+$/.test(path[i + 1]) ? [] : {}; o = o[k]; }
+      o[path[path.length - 1]] = el.value;
+    }));
+    const ac = $('#addcode'); if (ac) ac.onclick = () => { const v = $('#newcode').value.trim(); if (!v) return; const n = def.flow[Number(ac.dataset.i)]; if (n.options.some(o => o.value === v)) return toast('exists', true); n.options.push({ value: v, label: { en: v + ' — ', hu: v + ' — ' }, definition: { en: '', hu: '' }, include: { en: '', hu: '' }, exclude: { en: '', hu: '' }, cues: '', example: { en: '', hu: '' } }); draw(); };
+    $('#rawapply').onclick = () => { try { const j = JSON.parse($('#raw').value); Object.keys(def).forEach(k => delete def[k]); Object.assign(def, j); draw(); toast('OK'); } catch (e) { toast('JSON: ' + e.message, true); } };
+    $('#cbsave').onclick = async () => {
+      const v = $('#nv').value.trim(); if (!v) return toast(t('cb_new_version'), true);
+      if (S.codebooks.some(c => c.version === v)) return toast('exists', true);
+      def.version = v;
+      try { CB.walk({}, def); } catch (e) { return toast('Invalid flow: ' + e.message, true); }
+      let r = await sb.from('codebook_versions').update({ is_current: false }).eq('is_current', true); if (r.error) return fail(r.error);
+      r = await sb.from('codebook_versions').insert({ version: v, definition: def, notes: $('#nn').value, is_current: true, created_by: S.me.id }); if (r.error) return fail(r.error);
+      await loadCodebooks(); toast(t('saved')); render();
+    };
+    $$('[data-cur]').forEach(b => (b.onclick = async () => {
+      let r = await sb.from('codebook_versions').update({ is_current: false }).eq('is_current', true); if (r.error) return fail(r.error);
+      r = await sb.from('codebook_versions').update({ is_current: true }).eq('id', b.dataset.cur); if (r.error) return fail(r.error);
+      await loadCodebooks(); render();
+    }));
+  };
+  draw();
+}
+
+boot().catch(fail);
