@@ -73,8 +73,8 @@ table.data th{background:var(--panel);font-weight:600;position:sticky;top:0}
 .progress{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:6px 0 10px}
 .progress>div{height:100%;background:var(--green)}
 .postbox{min-height:300px}
-.posttext{font-size:16px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word}
-.origtext{margin-top:14px;padding:12px;background:var(--panel);border-radius:6px;white-space:pre-wrap;font-size:14px}
+.posttext{font-size:16px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.origtext{overflow-wrap:anywhere;margin-top:14px;padding:12px;background:var(--panel);border-radius:6px;white-space:pre-wrap;font-size:14px}
 .banner{padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:13px}
 .banner.warn{background:var(--amber-soft);color:#7a4d00}
 .banner.info{background:var(--accent-soft);color:#184b96}
@@ -236,6 +236,7 @@ const S = {
 // ---------- i18n ----------
 const T = {
   en: {
+    calib: 'Shared set', calib_none: 'No shared set yet.', calib_set: 'Set', calib_new: 'New shared set', calib_add: 'Add posts', calib_random: 'Random posts from batch', calib_ids: 'or post IDs (comma separated)', calib_create: 'Create set', calib_reveal: 'Reveal codings to everyone', calib_hide: 'Hide codings again', calib_revealed: 'Codings are visible to everyone', calib_blind: 'Blind: code first; codings are shown once the admin reveals them', calib_everyone: 'Everyone\'s coding', calib_reference: 'Reference solution', calib_ref_edit: 'Edit reference', calib_discussion: 'Discussion note', calib_finished: 'finished', calib_mine_done: 'You coded {d} of {n}', reference: 'Reference',
     code: 'Coding', agreement: 'Agreement', adjudicate: 'Adjudication', analysis: 'Analysis', admin: 'Admin', downloads: 'Downloads',
     login: 'Log in', signup: 'Create account', email: 'E-mail', password: 'Password', name: 'Name', logout: 'Log out',
     have_account: 'Already have an account?', no_account: 'No account yet?',
@@ -280,6 +281,7 @@ const T = {
     novar: 'no variation', time: 'Time', posts: 'posts', mean_conf: 'Mean confidence', mean_time: 'Median time (s)',
   },
   hu: {
+    calib: 'Közös minta', calib_none: 'Még nincs közös minta.', calib_set: 'Minta', calib_new: 'Új közös minta', calib_add: 'Posztok hozzáadása', calib_random: 'Véletlen posztok a kötegből', calib_ids: 'vagy posztazonosítók (vesszővel)', calib_create: 'Minta létrehozása', calib_reveal: 'Kódolások megmutatása mindenkinek', calib_hide: 'Kódolások elrejtése', calib_revealed: 'A kódolások mindenki számára láthatók', calib_blind: 'Vak kódolás: előbb mindenki kódol, a kódolások akkor látszanak, ha az admin megmutatja őket', calib_everyone: 'Mindenki kódolása', calib_reference: 'Referenciamegoldás', calib_ref_edit: 'Referencia szerkesztése', calib_discussion: 'Megbeszélés', calib_finished: 'befejezte', calib_mine_done: '{n} posztból {d} kódolva', reference: 'Referencia',
     code: 'Kódolás', agreement: 'Egyetértés', adjudicate: 'Döntés', analysis: 'Elemzés', admin: 'Admin', downloads: 'Letöltések',
     login: 'Belépés', signup: 'Regisztráció', email: 'E-mail', password: 'Jelszó', name: 'Név', logout: 'Kilépés',
     have_account: 'Van már fiókod?', no_account: 'Még nincs fiókod?',
@@ -493,11 +495,11 @@ function renderAuth(mode = 'login') {
 function render() {
   if (!S.me) return renderAuth();
   if (S.me.role === 'pending') return;
-  const tabs = [['code', true], ['agreement', isReviewer()], ['adjudicate', isReviewer()], ['analysis', isReviewer()], ['downloads', true], ['admin', isAdmin()]].filter(x => x[1]).map(x => x[0]);
+  const tabs = [['code', true], ['calib', true], ['agreement', isReviewer()], ['adjudicate', isReviewer()], ['analysis', isReviewer()], ['downloads', true], ['admin', isAdmin()]].filter(x => x[1]).map(x => x[0]);
   if (!tabs.includes(S.tab)) S.tab = 'code';
   $('#tabs').innerHTML = tabs.map(k => `<button data-t="${k}" class="${k === S.tab ? 'active' : ''}">${t(k)}</button>`).join('');
   $$('#tabs button').forEach(b => (b.onclick = () => { S.tab = b.dataset.t; render(); }));
-  const views = { code: viewCode, agreement: viewAgreement, adjudicate: viewAdjudicate, analysis: viewAnalysis, downloads: viewDownloads, admin: viewAdmin };
+  const views = { code: viewCode, calib: viewCalib, agreement: viewAgreement, adjudicate: viewAdjudicate, analysis: viewAnalysis, downloads: viewDownloads, admin: viewAdmin };
   if (!S.codebook) { $('#app').innerHTML = '<div class="card">No codebook in the database yet. An admin needs to log in once.</div>'; return; }
   $('#app').innerHTML = `<div class="muted">${t('loading')}</div>`;
   views[S.tab]().catch(fail);
@@ -1150,6 +1152,131 @@ async function admCodebook() {
     }));
   };
   draw();
+}
+
+// ---------- view: shared calibration set ----------
+async function viewCalib() {
+  const sets = (await sb.from('calib_sets').select('*').order('id')).data || [];
+  let sid = store.get('calib_set', sets.length ? sets[sets.length - 1].id : null);
+  if (!sets.some(x => x.id === sid)) sid = sets.length ? sets[sets.length - 1].id : null;
+  const set = sets.find(x => x.id === sid);
+  let html = `<div class="card" style="margin-bottom:16px"><div class="row"><b>${t('calib_set')}</b>
+    <select id="cs">${sets.map(x => `<option value="${x.id}" ${x.id === sid ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+    <span id="csinfo" class="small muted"></span><span style="flex:1"></span>
+    ${isAdmin() && set ? `<button class="btn" id="crev">${set.revealed ? t('calib_hide') : t('calib_reveal')}</button>` : ''}
+    ${isAdmin() ? `<button class="btn" id="cnew">${t('calib_new')}</button>` : ''}</div>
+    ${set ? `<div class="banner ${set.revealed ? 'info' : 'warn'}" style="margin:10px 0 0">${set.revealed ? t('calib_revealed') : t('calib_blind')}${set.note ? ' — ' + esc(set.note) : ''}</div>` : ''}</div>
+    <div id="cadmin"></div><div id="cmain"></div>`;
+  $('#app').innerHTML = html;
+  if (sets.length) $('#cs').onchange = e => { store.set('calib_set', Number(e.target.value)); render(); };
+  if (isAdmin()) $('#cnew').onclick = () => calibAdmin(null);
+  if (!set) { $('#cmain').innerHTML = `<div class="card">${t('calib_none')}</div>`; return; }
+  if (isAdmin()) $('#crev').onclick = async () => { const { error } = await sb.from('calib_sets').update({ revealed: !set.revealed }).eq('id', set.id); if (error) return fail(error); render(); };
+
+  const items = await fetchAll(() => sb.from('calib_items').select('id,position,post_id,posts(id,external_id,text_en,text_original,original_lang)').eq('set_id', set.id).order('position'));
+  const ids = items.map(i => i.id);
+  const cods = ids.length ? await fetchAll(() => sb.from('calib_codings').select('*').in('item_id', ids)) : [];
+  const refs = ids.length ? ((await sb.from('calib_refs').select('*').in('item_id', ids)).data || []) : [];
+  const coders = await fetchAll(() => sb.from('coders').select('id,email,display_name,role'));
+  const coderById = new Map(coders.map(c => [c.id, c]));
+  coderById.set('REF', { display_name: '★ ' + t('reference') });
+  const refBy = new Map(refs.map(r => [r.item_id, r]));
+  const showAll = set.revealed;
+  const mine = new Map(cods.filter(c => c.coder_id === S.me.id).map(c => [c.item_id, c]));
+  const coderIds = [...new Set(cods.map(c => c.coder_id))];
+  const finished = coderIds.filter(id => items.every(i => cods.some(c => c.item_id === i.id && c.coder_id === id))).length;
+  $('#csinfo').textContent = `${items.length} ${t('posts')} · ${t('calib_mine_done', { d: mine.size, n: items.length })} · ${finished} ${t('coders_n').toLowerCase()} ${t('calib_finished')}`;
+  if (isAdmin()) $('#cadmin').innerHTML = `<div class="card" style="margin-bottom:16px"><details><summary><b>${t('calib_add')}</b></summary><div id="caddbox" style="margin-top:10px"></div></details></div>`, calibAdmin(set, $('#caddbox'));
+
+  // agreement summary when revealed
+  if (showAll && coderIds.length >= 2) {
+    const def = CB.def(); const vars = agreementVars(def).filter(v => v.heat);
+    const units = v => items.map(i => cods.filter(c => c.item_id === i.id).map(c => v.get(c.answers)));
+    $('#cmain').insertAdjacentHTML('beforebegin', `<div class="card" style="margin-bottom:16px"><b>Krippendorff α</b> <span class="small muted">(${coderIds.length} ${t('coders_n').toLowerCase()})</span>
+      <div class="row" style="margin-top:6px">${vars.map(v => { const r = AGR.alpha(units(v), v.dist); return `<span class="pill">${esc(v.node || v.id)}: <span class="${alphaClass(r.alpha, v.id === 'proselytising' ? 0.8 : 0.667)}">${r.novar ? '–' : fmt(r.alpha, 2)}</span></span>`; }).join('')}</div></div>`);
+  }
+
+  $('#cmain').innerHTML = `<div class="coding"><div class="card queue" id="cl"></div><div class="card postbox" id="cp"></div>
+    <div class="card form"><div class="row" style="justify-content:space-between;margin-bottom:8px"><b>${t('codebook')} ${esc(S.codebook.version)}</b><button class="btn sm" id="cbopen2">${t('codebook')}</button></div><div id="cf"></div>
+    <div class="savebar"><button class="btn primary" id="csave" disabled>${t('save_next')}</button><span class="small muted" id="cprobs"></span></div></div></div>`;
+  $('#cbopen2').onclick = () => modal(codebookHtml(CB.def()));
+  let cur = null, fs = null, t0 = 0;
+  const drawL = () => {
+    $('#cl').innerHTML = items.map((i, k) => { const others = cods.filter(c => c.item_id === i.id).length; return `<div class="item ${cur && cur.id === i.id ? 'cur' : ''}" data-i="${i.id}"><span>${k + 1}. ${esc(i.posts.external_id)}</span><span class="small muted">${showAll || isReviewer() ? others : ''} <span class="dot ${mine.has(i.id) ? 'done' : ''}"></span></span></div>`; }).join('');
+    $$('#cl .item').forEach(el => (el.onclick = () => open(items.find(i => i.id === Number(el.dataset.i)))));
+  };
+  const open = i => {
+    cur = i; drawL();
+    const p = i.posts; const def = CB.def();
+    let everyone = '';
+    if (showAll) {
+      const list = cods.filter(c => c.item_id === i.id).map(c => ({ ...c, post_id: p.id }));
+      const ref = refBy.get(i.id);
+      if (ref && ref.reference) list.unshift({ coder_id: 'REF', answers: ref.reference, codebook_version: S.codebook.version, duration_sec: 0, post_id: p.id });
+      const R = { byPost: new Map([[p.id, list]]), coderById, meta: new Map() };
+      const div = divergence(list.filter(c => c.coder_id !== 'REF'), def);
+      everyone = `<h3 style="margin-top:20px">${t('calib_everyone')}${div && div !== 'none' ? ` <span class="pill warn">${esc(t('diverge_title'))}: ${esc(L(CB.node(div).label))}</span>` : div === 'none' ? ' <span class="pill ok">' + t('diverge_none') + '</span>' : ''}</h3>`
+        + postDetail(R, p, def).split('<h3>').slice(1).map(x => '<h3>' + x).join('')
+        + `<h3>${t('calib_discussion')}</h3>` + (isReviewer() ? `<textarea id="cdisc">${esc(ref ? ref.discussion || '' : '')}</textarea><div class="row" style="margin-top:6px"><button class="btn sm" id="cdsave">${t('save')}</button><button class="btn sm" id="credit">${t('calib_ref_edit')}</button></div>` : `<div>${esc(ref ? ref.discussion || '–' : '–')}</div>`);
+    } else if (isReviewer()) {
+      everyone = `<div class="row" style="margin-top:14px"><button class="btn sm" id="credit">${t('calib_ref_edit')}</button></div>`;
+    }
+    $('#cp').innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:10px"><b>${esc(p.external_id)}</b>${p.text_original ? `<button class="btn sm" id="corig">${t('show_orig')}</button>` : ''}</div>
+      <div class="posttext">${esc(p.text_en)}</div><div class="origtext hidden" id="corigt">${esc(p.text_original || '')}</div>${everyone}`;
+    if (p.text_original) $('#corig').onclick = () => $('#corigt').classList.toggle('hidden');
+    const saveRef = async patch => { const ex = refBy.get(i.id) || { item_id: i.id }; const row = { item_id: i.id, reference: ex.reference || null, discussion: ex.discussion || null, ...patch, updated_by: S.me.id, updated_at: new Date().toISOString() }; const { data, error } = await sb.from('calib_refs').upsert(row).select().single(); if (error) return fail(error); refBy.set(i.id, data); toast(t('saved')); open(i); };
+    if ($('#cdsave')) $('#cdsave').onclick = () => saveRef({ discussion: $('#cdisc').value });
+    if ($('#credit')) $('#credit').onclick = () => {
+      const ex = refBy.get(i.id); const st = { ans: ex && ex.reference ? JSON.parse(JSON.stringify(ex.reference)) : {} };
+      const m = modal(`<h2>${t('calib_reference')} — ${esc(p.external_id)}</h2><div id="rf"></div><div class="row" style="margin-top:10px"><button class="btn primary" id="rfs">${t('save')}</button></div>`);
+      codingForm($('#rf', m.el), st, () => {});
+      $('#rfs', m.el).onclick = async () => { if (!CB.walk(st.ans).outcome) return toast(t('complete_flow'), true); m.close(); await saveRef({ reference: CB.finalize(st.ans) }); };
+    };
+    const c = mine.get(i.id);
+    fs = { ans: c ? JSON.parse(JSON.stringify(c.answers)) : {} }; t0 = Date.now();
+    const upd = () => { const pr = CB.problems(fs.ans); $('#csave').disabled = pr.length > 0; $('#cprobs').textContent = [...new Set(pr)].join(' · '); };
+    codingForm($('#cf'), fs, upd); upd();
+  };
+  $('#csave').onclick = async () => {
+    const prev = mine.get(cur.id); const answers = CB.finalize(fs.ans);
+    const dur = (prev ? prev.duration_sec : 0) + Math.round((Date.now() - t0) / 1000);
+    const res = prev ? await sb.from('calib_codings').update({ answers, codebook_version: S.codebook.version, duration_sec: dur }).eq('id', prev.id).select().single()
+      : await sb.from('calib_codings').insert({ item_id: cur.id, coder_id: S.me.id, answers, codebook_version: S.codebook.version, duration_sec: dur }).select().single();
+    if (res.error) return fail(res.error);
+    mine.set(cur.id, res.data); const k = cods.findIndex(x => x.id === res.data.id); if (k >= 0) cods[k] = res.data; else cods.push(res.data);
+    toast(t('saved'));
+    const idx = items.indexOf(cur); const next = items.slice(idx + 1).find(i => !mine.has(i.id)) || items.find(i => !mine.has(i.id));
+    if (next && !showAll) open(next); else open(cur);
+  };
+  drawL(); if (items.length) open(items.find(i => !mine.has(i.id)) || items[0]);
+}
+
+// admin: create a set, or add posts to an existing one
+async function calibAdmin(set, box) {
+  const target = box || (() => { const m = modal(`<h2>${t('calib_new')}</h2><div id="cnb"></div>`); return $('#cnb', m.el); })();
+  target.innerHTML = `<div class="kv" style="grid-template-columns:220px 1fr;gap:8px;font-size:13px">
+    ${set ? '' : `<div>${t('name')}</div><div><input type="text" id="cn_name" style="width:100%" placeholder="Calibration round 1"></div><div>Note</div><div><input type="text" id="cn_note" style="width:100%"></div>`}
+    <div>${t('batch')}</div><div><select id="cn_b">${S.batches.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></div>
+    <div>${t('calib_random')}</div><div><input type="text" id="cn_n" value="${set ? '' : '10'}" style="width:70px"></div>
+    <div>${t('calib_ids')}</div><div><input type="text" id="cn_ids" style="width:100%" placeholder="SP001, SP017"></div></div>
+    <div class="row" style="margin-top:10px"><button class="btn primary" id="cn_go">${set ? t('calib_add') : t('calib_create')}</button></div>`;
+  $('#cn_go', target).onclick = async () => {
+    try {
+      let s = set;
+      if (!s) { const name = $('#cn_name', target).value.trim(); if (!name) return toast(t('name'), true);
+        const r = await sb.from('calib_sets').insert({ name, note: $('#cn_note', target).value || null, created_by: S.me.id }).select().single(); if (r.error) throw r.error; s = r.data; }
+      const bid = $('#cn_b', target).value; const posts = await fetchAll(() => sb.from('posts').select('id,external_id').eq('batch_id', bid).order('id'));
+      const existing = (await sb.from('calib_items').select('post_id,position').eq('set_id', s.id)).data || [];
+      const have = new Set(existing.map(x => x.post_id)); let pos = existing.reduce((m, x) => Math.max(m, x.position), 0);
+      const wanted = $('#cn_ids', target).value.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
+      let pick = wanted.length ? posts.filter(p => wanted.includes(p.external_id)) : [];
+      const n = Number($('#cn_n', target).value) || 0;
+      if (n > 0) pick = pick.concat(posts.filter(p => !have.has(p.id) && !pick.includes(p)).map(p => [Math.random(), p]).sort((a, b) => a[0] - b[0]).slice(0, n).map(x => x[1]));
+      const rows = pick.filter(p => !have.has(p.id)).map(p => ({ set_id: s.id, post_id: p.id, position: ++pos }));
+      if (rows.length) { const r2 = await sb.from('calib_items').insert(rows); if (r2.error) throw r2.error; }
+      store.set('calib_set', s.id); toast(`${rows.length} ${t('posts')}`); $$('.modal-bg').forEach(m => m.remove()); render();
+    } catch (e) { fail(e); }
+  };
 }
 
 boot().catch(fail);
