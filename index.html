@@ -242,7 +242,7 @@ const T = {
   en: {
     calib: 'Shared set', calib_none: 'No shared set yet.', calib_set: 'Set', calib_new: 'New shared set', calib_add: 'Add posts', calib_random: 'Random posts from batch', calib_ids: 'or post IDs (comma separated)', calib_create: 'Create set', calib_reveal: 'Reveal codings to everyone', calib_hide: 'Hide codings again', calib_revealed: 'Codings are visible to everyone', calib_blind: 'Blind: code first; codings are shown once the admin reveals them', calib_everyone: 'Everyone\'s coding', calib_reference: 'Reference solution', calib_ref_edit: 'Edit reference', calib_discussion: 'Discussion note', calib_finished: 'finished', calib_mine_done: 'You coded {d} of {n}', reference: 'Reference',
     code: 'Coding', agreement: 'Agreement', adjudicate: 'Adjudication', analysis: 'Analysis', admin: 'Admin', downloads: 'Downloads',
-    login: 'Log in', signup: 'Create account', email: 'E-mail', password: 'Password', name: 'Name', logout: 'Log out',
+    login: 'Log in', signup: 'Create account', email: 'E-mail', email_or_user: 'E-mail or user name', password: 'Password', name: 'Name', logout: 'Log out',
     have_account: 'Already have an account?', no_account: 'No account yet?',
     pending: 'Your account is waiting for activation by the project admin. Reload this page once you have been activated.',
     signup_done: 'Account created. If e-mail confirmation is on, confirm your address first; then ask the admin to activate you.',
@@ -287,7 +287,7 @@ const T = {
   hu: {
     calib: 'Közös minta', calib_none: 'Még nincs közös minta.', calib_set: 'Minta', calib_new: 'Új közös minta', calib_add: 'Posztok hozzáadása', calib_random: 'Véletlen posztok a kötegből', calib_ids: 'vagy posztazonosítók (vesszővel)', calib_create: 'Minta létrehozása', calib_reveal: 'Kódolások megmutatása mindenkinek', calib_hide: 'Kódolások elrejtése', calib_revealed: 'A kódolások mindenki számára láthatók', calib_blind: 'Vak kódolás: előbb mindenki kódol, a kódolások akkor látszanak, ha az admin megmutatja őket', calib_everyone: 'Mindenki kódolása', calib_reference: 'Referenciamegoldás', calib_ref_edit: 'Referencia szerkesztése', calib_discussion: 'Megbeszélés', calib_finished: 'befejezte', calib_mine_done: '{n} posztból {d} kódolva', reference: 'Referencia',
     code: 'Kódolás', agreement: 'Egyetértés', adjudicate: 'Döntés', analysis: 'Elemzés', admin: 'Admin', downloads: 'Letöltések',
-    login: 'Belépés', signup: 'Regisztráció', email: 'E-mail', password: 'Jelszó', name: 'Név', logout: 'Kilépés',
+    login: 'Belépés', signup: 'Regisztráció', email: 'E-mail', email_or_user: 'E-mail vagy felhasználónév', password: 'Jelszó', name: 'Név', logout: 'Kilépés',
     have_account: 'Van már fiókod?', no_account: 'Még nincs fiókod?',
     pending: 'A fiókodat a projekt adminisztrátorának még aktiválnia kell. Aktiválás után töltsd újra az oldalt.',
     signup_done: 'A fiók elkészült. Ha be van kapcsolva az e-mail-megerősítés, előbb erősítsd meg a címet, utána kérd az aktiválást.',
@@ -467,19 +467,23 @@ async function loadCodebooks() {
   $('#cbver').textContent = S.codebook ? 'codebook ' + S.codebook.version : '';
 }
 
+// Generic coder accounts (coder_1 …) log in with a bare user name; it maps to this domain.
+const CODER_DOMAIN = 'spine-elte-css.github.io';
+const toEmail = v => (v.includes('@') ? v : `${v}@${CODER_DOMAIN}`).toLowerCase();
+
 function renderAuth(mode = 'login') {
   const signup = mode === 'signup';
   $('#app').innerHTML = `<div class="auth"><div class="card">
     <h2>${t(signup ? 'signup' : 'login')}</h2>
     ${signup ? `<label>${t('name')}</label><input id="a_name" type="text">` : ''}
-    <label>${t('email')}</label><input id="a_email" type="email" autocomplete="username">
+    <label>${t(signup ? 'email' : 'email_or_user')}</label><input id="a_email" type="${signup ? 'email' : 'text'}" autocomplete="username" autocapitalize="none">
     <label>${t('password')}</label><input id="a_pw" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}">
     <div class="row" style="margin-top:16px"><button class="btn primary" id="a_go">${t(signup ? 'signup' : 'login')}</button></div>
     <p class="small muted">${t(signup ? 'have_account' : 'no_account')} <a href="#" id="a_sw">${t(signup ? 'login' : 'signup')}</a></p>
   </div></div>`;
   $('#a_sw').onclick = e => { e.preventDefault(); renderAuth(signup ? 'login' : 'signup'); };
   const go = async () => {
-    const email = $('#a_email').value.trim(), password = $('#a_pw').value;
+    const email = toEmail($('#a_email').value.trim()), password = $('#a_pw').value;
     if (signup) {
       const { error } = await sb.auth.signUp({ email, password, options: { data: { display_name: $('#a_name').value.trim() } } });
       if (error) return fail(error);
@@ -1265,7 +1269,7 @@ async function calibAdmin(set, box) {
   target.innerHTML = `<div class="kv" style="grid-template-columns:220px 1fr;gap:8px;font-size:13px">
     ${set ? '' : `<div>${t('name')}</div><div><input type="text" id="cn_name" style="width:100%" placeholder="Calibration round 1"></div><div>Note</div><div><input type="text" id="cn_note" style="width:100%"></div>`}
     <div>${t('batch')}</div><div><select id="cn_b">${S.batches.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></div>
-    <div>${t('calib_random')}</div><div><input type="text" id="cn_n" value="${set ? '' : '10'}" style="width:70px"></div>
+    <div>${t('calib_random')}</div><div><input type="text" id="cn_n" value="${set ? '' : '30'}" style="width:70px"></div>
     <div>${t('calib_ids')}</div><div><input type="text" id="cn_ids" style="width:100%" placeholder="SP001, SP017"></div></div>
     <div class="row" style="margin-top:10px"><button class="btn primary" id="cn_go">${set ? t('calib_add') : t('calib_create')}</button></div>`;
   $('#cn_go', target).onclick = async () => {
