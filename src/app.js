@@ -17,7 +17,7 @@ const T = {
   en: {
     calib: 'Shared set', calib_none: 'No shared set yet.', calib_set: 'Set', calib_new: 'New shared set', calib_add: 'Add posts', calib_random: 'Random posts from batch', calib_ids: 'or post IDs (comma separated)', calib_create: 'Create set', calib_reveal: 'Reveal codings to everyone', calib_hide: 'Hide codings again', calib_revealed: 'Codings are visible to everyone', calib_blind: 'Blind: code first; codings are shown once the admin reveals them', calib_everyone: 'Everyone\'s coding', calib_reference: 'Reference solution', calib_ref_edit: 'Edit reference', calib_discussion: 'Discussion note', calib_finished: 'finished', calib_mine_done: 'You coded {d} of {n}', reference: 'Reference',
     code: 'Coding', agreement: 'Agreement', adjudicate: 'Adjudication', analysis: 'Analysis', admin: 'Admin', downloads: 'Downloads',
-    login: 'Log in', signup: 'Create account', email: 'E-mail', email_or_user: 'E-mail or user name', password: 'Password', first_login: 'First login (coder account)', user_name: 'User name (e.g. coder_1)', invite_code: 'Invite code', password2: 'Password again', pw_mismatch: 'The two passwords differ.', pw_short: 'The password must be at least 8 characters.', invalid_invite: 'Wrong user name or invite code, or this account has already been set up.', first_hint: 'Use the user name and one-time invite code you received from the project admin, and choose your own password. Afterwards log in with the user name and this password.', name: 'Name', logout: 'Log out',
+    login: 'Log in', signup: 'Create account', email: 'E-mail', flags_title: 'Flags', flags_help: 'When to tick a flag?', email_or_user: 'E-mail or user name', password: 'Password', first_login: 'First login (coder account)', user_name: 'User name (e.g. coder_1)', invite_code: 'Invite code', password2: 'Password again', pw_mismatch: 'The two passwords differ.', pw_short: 'The password must be at least 8 characters.', invalid_invite: 'Wrong user name or invite code, or this account has already been set up.', first_hint: 'Use the user name and one-time invite code you received from the project admin, and choose your own password. Afterwards log in with the user name and this password.', name: 'Name', logout: 'Log out',
     have_account: 'Already have an account?', no_account: 'No account yet?',
     pending: 'Your account is waiting for activation by the project admin. Reload this page once you have been activated.',
     signup_done: 'Account created. If e-mail confirmation is on, confirm your address first; then ask the admin to activate you.',
@@ -62,7 +62,7 @@ const T = {
   hu: {
     calib: 'Közös minta', calib_none: 'Még nincs közös minta.', calib_set: 'Minta', calib_new: 'Új közös minta', calib_add: 'Posztok hozzáadása', calib_random: 'Véletlen posztok a kötegből', calib_ids: 'vagy posztazonosítók (vesszővel)', calib_create: 'Minta létrehozása', calib_reveal: 'Kódolások megmutatása mindenkinek', calib_hide: 'Kódolások elrejtése', calib_revealed: 'A kódolások mindenki számára láthatók', calib_blind: 'Vak kódolás: előbb mindenki kódol, a kódolások akkor látszanak, ha az admin megmutatja őket', calib_everyone: 'Mindenki kódolása', calib_reference: 'Referenciamegoldás', calib_ref_edit: 'Referencia szerkesztése', calib_discussion: 'Megbeszélés', calib_finished: 'befejezte', calib_mine_done: '{n} posztból {d} kódolva', reference: 'Referencia',
     code: 'Kódolás', agreement: 'Egyetértés', adjudicate: 'Döntés', analysis: 'Elemzés', admin: 'Admin', downloads: 'Letöltések',
-    login: 'Belépés', signup: 'Regisztráció', email: 'E-mail', email_or_user: 'E-mail vagy felhasználónév', password: 'Jelszó', first_login: 'Első belépés (kódolói fiók)', user_name: 'Felhasználónév (pl. coder_1)', invite_code: 'Meghívókód', password2: 'Jelszó még egyszer', pw_mismatch: 'A két jelszó nem egyezik.', pw_short: 'A jelszó legalább 8 karakter legyen.', invalid_invite: 'Hibás felhasználónév vagy meghívókód, vagy ezt a fiókot már beállították.', first_hint: 'Add meg a projekt adminjától kapott felhasználónevet és egyszer használatos meghívókódot, és válassz saját jelszót. Később a felhasználónévvel és ezzel a jelszóval lépj be.', name: 'Név', logout: 'Kilépés',
+    login: 'Belépés', signup: 'Regisztráció', email: 'E-mail', flags_title: 'Zászlók', flags_help: 'Mikor jelöld a zászlókat?', email_or_user: 'E-mail vagy felhasználónév', password: 'Jelszó', first_login: 'Első belépés (kódolói fiók)', user_name: 'Felhasználónév (pl. coder_1)', invite_code: 'Meghívókód', password2: 'Jelszó még egyszer', pw_mismatch: 'A két jelszó nem egyezik.', pw_short: 'A jelszó legalább 8 karakter legyen.', invalid_invite: 'Hibás felhasználónév vagy meghívókód, vagy ezt a fiókot már beállították.', first_hint: 'Add meg a projekt adminjától kapott felhasználónevet és egyszer használatos meghívókódot, és válassz saját jelszót. Később a felhasználónévvel és ezzel a jelszóval lépj be.', name: 'Név', logout: 'Kilépés',
     have_account: 'Van már fiókod?', no_account: 'Még nincs fiókod?',
     pending: 'A fiókodat a projekt adminisztrátorának még aktiválnia kell. Aktiválás után töltsd újra az oldalt.',
     signup_done: 'A fiók elkészült. Ha be van kapcsolva az e-mail-megerősítés, előbb erősítsd meg a címet, utána kérd az aktiválást.',
@@ -322,6 +322,7 @@ function codebookHtml(def) {
     ${def.flow.map(n => `<h3>${esc(L(n.label))}</h3>${n.help ? `<p class="muted">${esc(L(n.help))}</p>` : ''}
       ${n.type === 'multi' ? n.options.map(opt).join('') : ''}`).join('')}
     <h3>${t('outcome')}</h3><ul>${Object.keys(def.outcomes).map(k => `<li><b>${esc(k)}</b> — ${esc(L(def.outcomes[k].label))}</li>`).join('')}</ul>
+    ${(def.fields || []).some(f => f.type === 'flag') ? `<h3>${t('flags_title')}</h3>${def.flags_intro ? `<p class="muted">${esc(L(def.flags_intro))}</p>` : ''}<table class="data">${(def.fields || []).filter(f => f.type === 'flag').map(f => `<tr><td><b>${esc(L(f.label))}</b></td><td>${esc(L(f.help || ''))}</td></tr>`).join('')}</table>` : ''}
     <h3>${t('boundary')}</h3><table class="data">${(def.boundary_rules || []).map(r => `<tr><td style="white-space:nowrap"><b>${esc(r.pair)}</b></td><td>${esc(L(r.rule))}</td></tr>`).join('')}</table>
     <h3>${t('special')}</h3><ul>${(def.special_cases || []).map(r => `<li>${esc(L(r))}</li>`).join('')}</ul>
     ${def.docs_url ? `<p><a href="${esc(def.docs_url)}" target="_blank" rel="noopener">${t('full_doc')} ↗</a></p>` : ''}`;
@@ -375,11 +376,16 @@ function codingForm(container, state, onChange) {
       if (w.path.some(id => { const n = CB.node(id); return n.type === 'single' && (n.options || []).some(o => o.suggest_confidence && String(o.value) === String(ans[id])); })) html += `<div class="banner info">${esc(t('lowconf_hint'))}</div>`;
     }
     html += '<div class="fields">';
+    let flagsHelpDone = false;
     (def.fields || []).forEach(f => {
+      if (f.type === 'flag' && !flagsHelpDone && (def.flags_intro || (def.fields || []).some(x => x.help))) {
+        flagsHelpDone = true;
+        html += `<details class="flagshelp small" style="margin:8px 0 4px"><summary>ⓘ ${t('flags_help')}</summary>${def.flags_intro ? `<p class="muted" style="margin:6px 0">${esc(L(def.flags_intro))}</p>` : ''}<ul style="margin:4px 0 0 18px;padding:0">${(def.fields || []).filter(x => x.type === 'flag' && x.help).map(x => `<li style="margin-bottom:4px"><b>${esc(L(x.label))}</b>: ${esc(L(x.help))}</li>`).join('')}</ul></details>`;
+      }
       if (f.type === 'scale') {
         html += `<div class="f"><label class="t">${esc(L(f.label))}${f.required ? ' <span class="req">*</span>' : ''}</label><div class="choice" data-field="${esc(f.id)}">${f.options.map(o => `<button data-v="${esc(o.value)}" class="${String(ans[f.id]) === String(o.value) ? 'on' : ''}">${esc(L(o.label))}</button>`).join('')}</div></div>`;
       } else if (f.type === 'flag') {
-        html += `<div class="flag"><input type="checkbox" id="f_${esc(f.id)}" data-flag="${esc(f.id)}" ${ans[f.id] ? 'checked' : ''}><label for="f_${esc(f.id)}">${esc(L(f.label))}</label></div>`;
+        html += `<div class="flag"><input type="checkbox" id="f_${esc(f.id)}" data-flag="${esc(f.id)}" ${ans[f.id] ? 'checked' : ''}><label for="f_${esc(f.id)}"${f.help ? ` title="${esc(L(f.help))}"` : ''}>${esc(L(f.label))}</label></div>`;
       } else if (f.type === 'text') {
         let need = false;
         if (f.required_if) Object.keys(f.required_if).forEach(k => { if (String(ans[k]) === String(f.required_if[k])) need = true; });
