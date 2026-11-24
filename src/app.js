@@ -17,7 +17,7 @@ const T = {
   en: {
     calib: 'Shared set', calib_none: 'No shared set yet.', calib_set: 'Set', calib_new: 'New shared set', calib_add: 'Add posts', calib_random: 'Random posts from batch', calib_ids: 'or post IDs (comma separated)', calib_create: 'Create set', calib_reveal: 'Reveal codings to everyone', calib_hide: 'Hide codings again', calib_revealed: 'Codings are visible to everyone', calib_blind: 'Blind: code first; codings are shown once the admin reveals them', calib_everyone: 'Everyone\'s coding', calib_reference: 'Reference solution', calib_ref_edit: 'Edit reference', calib_discussion: 'Discussion note', calib_finished: 'finished', calib_mine_done: 'You coded {d} of {n}', reference: 'Reference',
     code: 'Coding', agreement: 'Agreement', adjudicate: 'Adjudication', analysis: 'Analysis', admin: 'Admin', downloads: 'Downloads',
-    login: 'Log in', signup: 'Create account', email: 'E-mail', flags_title: 'Flags', flags_help: 'When to tick a flag?', email_or_user: 'E-mail or user name', password: 'Password', first_login: 'First login (coder account)', user_name: 'User name (e.g. coder_1)', invite_code: 'Invite code', password2: 'Password again', pw_mismatch: 'The two passwords differ.', pw_short: 'The password must be at least 8 characters.', invalid_invite: 'Wrong user name or invite code, or this account has already been set up.', first_hint: 'Use the user name and one-time invite code you received from the project admin, and choose your own password. Afterwards log in with the user name and this password.', name: 'Name', logout: 'Log out',
+    login: 'Log in', signup: 'Create account', email: 'E-mail', cbn_title: 'New codebook version: {v}', cbn_prev: 'previously {v}', cbn_open: 'Open codebook', cbn_ok: 'Got it', flags_title: 'Flags', flags_help: 'When to tick a flag?', email_or_user: 'E-mail or user name', password: 'Password', first_login: 'First login (coder account)', user_name: 'User name (e.g. coder_1)', invite_code: 'Invite code', password2: 'Password again', pw_mismatch: 'The two passwords differ.', pw_short: 'The password must be at least 8 characters.', invalid_invite: 'Wrong user name or invite code, or this account has already been set up.', first_hint: 'Use the user name and one-time invite code you received from the project admin, and choose your own password. Afterwards log in with the user name and this password.', name: 'Name', logout: 'Log out',
     have_account: 'Already have an account?', no_account: 'No account yet?',
     pending: 'Your account is waiting for activation by the project admin. Reload this page once you have been activated.',
     signup_done: 'Account created. If e-mail confirmation is on, confirm your address first; then ask the admin to activate you.',
@@ -62,7 +62,7 @@ const T = {
   hu: {
     calib: 'Közös minta', calib_none: 'Még nincs közös minta.', calib_set: 'Minta', calib_new: 'Új közös minta', calib_add: 'Posztok hozzáadása', calib_random: 'Véletlen posztok a kötegből', calib_ids: 'vagy posztazonosítók (vesszővel)', calib_create: 'Minta létrehozása', calib_reveal: 'Kódolások megmutatása mindenkinek', calib_hide: 'Kódolások elrejtése', calib_revealed: 'A kódolások mindenki számára láthatók', calib_blind: 'Vak kódolás: előbb mindenki kódol, a kódolások akkor látszanak, ha az admin megmutatja őket', calib_everyone: 'Mindenki kódolása', calib_reference: 'Referenciamegoldás', calib_ref_edit: 'Referencia szerkesztése', calib_discussion: 'Megbeszélés', calib_finished: 'befejezte', calib_mine_done: '{n} posztból {d} kódolva', reference: 'Referencia',
     code: 'Kódolás', agreement: 'Egyetértés', adjudicate: 'Döntés', analysis: 'Elemzés', admin: 'Admin', downloads: 'Letöltések',
-    login: 'Belépés', signup: 'Regisztráció', email: 'E-mail', flags_title: 'Zászlók', flags_help: 'Mikor jelöld a zászlókat?', email_or_user: 'E-mail vagy felhasználónév', password: 'Jelszó', first_login: 'Első belépés (kódolói fiók)', user_name: 'Felhasználónév (pl. coder_1)', invite_code: 'Meghívókód', password2: 'Jelszó még egyszer', pw_mismatch: 'A két jelszó nem egyezik.', pw_short: 'A jelszó legalább 8 karakter legyen.', invalid_invite: 'Hibás felhasználónév vagy meghívókód, vagy ezt a fiókot már beállították.', first_hint: 'Add meg a projekt adminjától kapott felhasználónevet és egyszer használatos meghívókódot, és válassz saját jelszót. Később a felhasználónévvel és ezzel a jelszóval lépj be.', name: 'Név', logout: 'Kilépés',
+    login: 'Belépés', signup: 'Regisztráció', email: 'E-mail', cbn_title: 'Új kódkönyv-változat: {v}', cbn_prev: 'eddig: {v}', cbn_open: 'Kódkönyv megnyitása', cbn_ok: 'Értem', flags_title: 'Zászlók', flags_help: 'Mikor jelöld a zászlókat?', email_or_user: 'E-mail vagy felhasználónév', password: 'Jelszó', first_login: 'Első belépés (kódolói fiók)', user_name: 'Felhasználónév (pl. coder_1)', invite_code: 'Meghívókód', password2: 'Jelszó még egyszer', pw_mismatch: 'A két jelszó nem egyezik.', pw_short: 'A jelszó legalább 8 karakter legyen.', invalid_invite: 'Hibás felhasználónév vagy meghívókód, vagy ezt a fiókot már beállították.', first_hint: 'Add meg a projekt adminjától kapott felhasználónevet és egyszer használatos meghívókódot, és válassz saját jelszót. Később a felhasználónévvel és ezzel a jelszóval lépj be.', name: 'Név', logout: 'Kilépés',
     have_account: 'Van már fiókod?', no_account: 'Még nincs fiókod?',
     pending: 'A fiókodat a projekt adminisztrátorának még aktiválnia kell. Aktiválás után töltsd újra az oldalt.',
     signup_done: 'A fiók elkészült. Ha be van kapcsolva az e-mail-megerősítés, előbb erősítsd meg a címet, utána kérd az aktiválást.',
@@ -207,7 +207,7 @@ function summary(ans) {
 async function boot() {
   $$('.lang button').forEach(b => {
     b.classList.toggle('on', b.dataset.l === S.lang);
-    b.onclick = () => { S.lang = b.dataset.l; store.set('lang', S.lang); $$('.lang button').forEach(x => x.classList.toggle('on', x.dataset.l === S.lang)); render(); };
+    b.onclick = () => { S.lang = b.dataset.l; store.set('lang', S.lang); $$('.lang button').forEach(x => x.classList.toggle('on', x.dataset.l === S.lang)); render(); cbNotice().catch(() => {}); };
   });
   const { data: { session } } = await sb.auth.getSession();
   sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') location.reload(); });
@@ -240,6 +240,32 @@ async function loadCodebooks() {
   }
   S.codebook = S.codebooks.find(c => c.is_current) || S.codebooks[S.codebooks.length - 1] || null;
   $('#cbver').textContent = S.codebook ? 'codebook ' + S.codebook.version : '';
+  cbNotice().catch(() => {});
+}
+
+// Banner shown once per coder (per browser) when the current codebook version is newer than the one they last saw.
+// First visit with this feature: the version of the coder's latest saved coding counts as "seen".
+async function cbNotice() {
+  const box = $('#cbnotice'); if (!box) return;
+  box.innerHTML = '';
+  if (!S.me || !S.codebook || S.me.role === 'pending') return;
+  const key = 'cb_seen_' + S.me.id, cur = S.codebook.version;
+  let seen = store.get(key, null);
+  if (seen === null) {
+    const last = async tbl => ((await sb.from(tbl).select('codebook_version,updated_at').eq('coder_id', S.me.id).order('updated_at', { ascending: false }).limit(1)).data || [])[0];
+    const rows = [await last('codings'), await last('calib_codings')].filter(Boolean).sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+    seen = rows.length ? rows[0].codebook_version : cur;
+    if (seen === cur) store.set(key, cur);
+  }
+  if (seen === cur) return;
+  const def = S.codebook.definition || {};
+  const items = (def.changelog || []).map(c => `<li>${esc(L(c))}</li>`).join('');
+  box.innerHTML = `<div class="banner warn" style="display:flex;gap:14px;align-items:flex-start;justify-content:space-between">
+    <div><b>${esc(t('cbn_title', { v: cur }))}</b> <span class="small">(${esc(t('cbn_prev', { v: seen }))})</span>
+      ${items ? `<ul style="margin:6px 0 0 18px;padding:0">${items}</ul>` : S.codebook.notes ? `<div class="small" style="margin-top:4px">${esc(S.codebook.notes)}</div>` : ''}</div>
+    <div class="row" style="flex-shrink:0"><button class="btn sm" id="cbn_open">${t('cbn_open')}</button><button class="btn sm primary" id="cbn_ok">${t('cbn_ok')}</button></div></div>`;
+  $('#cbn_open').onclick = () => modal(codebookHtml(def));
+  $('#cbn_ok').onclick = () => { store.set(key, cur); box.innerHTML = ''; };
 }
 
 // Generic coder accounts (coder_1 …) log in with a bare user name; it maps to this domain.
